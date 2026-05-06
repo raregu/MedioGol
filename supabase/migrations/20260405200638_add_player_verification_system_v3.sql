@@ -1,5 +1,4 @@
 -- Habilitar extensión necesaria para gen_random_bytes
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 /*
   # Sistema de Verificación de Identidad de Jugadores
@@ -57,7 +56,7 @@ CREATE OR REPLACE FUNCTION generate_player_qr_token()
 RETURNS TRIGGER AS $$
 BEGIN
   IF NEW.qr_token IS NULL THEN
-    NEW.qr_token := 'MG-' || encode(gen_random_bytes(16), 'hex');
+    NEW.qr_token := 'MG-' || replace(gen_random_uuid()::text, '-', '');
   END IF;
   RETURN NEW;
 END;
@@ -72,7 +71,7 @@ CREATE TRIGGER set_player_qr_token
 
 -- Actualizar QR tokens para jugadores existentes que no tienen
 UPDATE player_profiles
-SET qr_token = 'MG-' || encode(gen_random_bytes(16), 'hex')
+SET qr_token = 'MG-' || replace(gen_random_uuid()::text, '-', '')
 WHERE qr_token IS NULL;
 
 -- Tabla para registrar validaciones en cancha
