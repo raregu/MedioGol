@@ -176,7 +176,7 @@ CREATE POLICY "Users can insert own profile"
 -- TABLA: championships
 -- ====================
 CREATE TABLE IF NOT EXISTS championships (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text NOT NULL,
   sport text NOT NULL DEFAULT 'futbol',
   venue text NOT NULL,
@@ -239,7 +239,7 @@ CREATE POLICY "System admins can delete championships"
 -- TABLA: teams
 -- ====================
 CREATE TABLE IF NOT EXISTS teams (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   championship_id uuid NOT NULL REFERENCES championships(id) ON DELETE CASCADE,
   name text NOT NULL,
   logo_url text,
@@ -305,7 +305,7 @@ CREATE POLICY "Championship admins can delete teams"
 -- TABLA: players
 -- ====================
 CREATE TABLE IF NOT EXISTS players (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   team_id uuid NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
   user_id uuid REFERENCES profiles(id) ON DELETE SET NULL,
   name text NOT NULL,
@@ -374,7 +374,7 @@ CREATE POLICY "Championship admins and captains can delete players"
 -- TABLA: matches
 -- ====================
 CREATE TABLE IF NOT EXISTS matches (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   championship_id uuid NOT NULL REFERENCES championships(id) ON DELETE CASCADE,
   home_team_id uuid NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
   away_team_id uuid NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
@@ -442,7 +442,7 @@ CREATE POLICY "Championship admins can delete matches"
 -- TABLA: match_stats
 -- ====================
 CREATE TABLE IF NOT EXISTS match_stats (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   match_id uuid NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
   player_id uuid NOT NULL REFERENCES players(id) ON DELETE CASCADE,
   team_id uuid NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
@@ -513,7 +513,7 @@ CREATE POLICY "Championship admins can delete match stats"
 -- TABLA: sanctions
 -- ====================
 CREATE TABLE IF NOT EXISTS sanctions (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   championship_id uuid NOT NULL REFERENCES championships(id) ON DELETE CASCADE,
   player_id uuid NOT NULL REFERENCES players(id) ON DELETE CASCADE,
   match_id uuid REFERENCES matches(id) ON DELETE SET NULL,
@@ -580,7 +580,7 @@ CREATE POLICY "Championship admins can delete sanctions"
 -- TABLA: challenges
 -- ====================
 CREATE TABLE IF NOT EXISTS challenges (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   championship_id uuid NOT NULL REFERENCES championships(id) ON DELETE CASCADE,
   challenger_team_id uuid NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
   challenged_team_id uuid NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
@@ -643,7 +643,7 @@ CREATE POLICY "Captains can update challenges"
 -- TABLA: messages
 -- ====================
 CREATE TABLE IF NOT EXISTS messages (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   from_user_id uuid NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   to_user_id uuid NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   team_id uuid REFERENCES teams(id) ON DELETE SET NULL,
@@ -675,7 +675,7 @@ CREATE POLICY "Users can update their received messages"
 -- TABLA: invitations
 -- ====================
 CREATE TABLE IF NOT EXISTS invitations (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   team_id uuid NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
   invited_user_id uuid NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   invited_by_user_id uuid NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
