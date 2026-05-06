@@ -1,3 +1,6 @@
+-- Habilitar extensión necesaria para gen_random_bytes
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
 /*
   # Sistema de Verificación de Identidad de Jugadores
 
