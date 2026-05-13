@@ -83,71 +83,27 @@ export const PlayerProfile = () => {
 
     setUploading(true);
     try {
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        try {
-          const imageData = reader.result as string;
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
 
-          const optimizeResponse = await fetch(
-            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/optimize-player-photo`,
-            {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                imageData,
-                userId: user.id,
-              }),
-            }
-          );
+      const { error: uploadError } = await supabase.storage
+        .from('player-photos')
+        .upload(fileName, file, { upsert: true });
 
-          if (!optimizeResponse.ok) {
-            const errorData = await optimizeResponse.json();
-            throw new Error(errorData.error || 'Error optimizing image');
-          }
+      if (uploadError) throw uploadError;
 
-          const { optimizedImage } = await optimizeResponse.json();
+      const { error: updateError } = await supabase
+        .from('player_profiles')
+        .update({ profile_photo: fileName })
+        .eq('id', user.id);
 
-          const base64Data = optimizedImage.replace(/^data:image\/\w+;base64,/, '');
-          const binaryData = atob(base64Data);
-          const arrayBuffer = new Uint8Array(binaryData.length);
-          for (let i = 0; i < binaryData.length; i++) {
-            arrayBuffer[i] = binaryData.charCodeAt(i);
-          }
-          const optimizedBlob = new Blob([arrayBuffer], { type: 'image/jpeg' });
+      if (updateError) throw updateError;
 
-          const fileName = `${user.id}/${Date.now()}.jpg`;
-
-          const { error: uploadError } = await supabase.storage
-            .from('player-photos')
-            .upload(fileName, optimizedBlob, {
-              upsert: true,
-              contentType: 'image/jpeg'
-            });
-
-          if (uploadError) throw uploadError;
-
-          const { error: updateError } = await supabase
-            .from('player_profiles')
-            .update({ profile_photo: fileName })
-            .eq('id', user.id);
-
-          if (updateError) throw updateError;
-
-          fetchPlayerData();
-        } catch (error) {
-          console.error('Error processing photo:', error);
-          alert('Error al procesar la foto');
-          setUploading(false);
-        }
-      };
-
-      reader.readAsDataURL(file);
+      fetchPlayerData();
     } catch (error) {
       console.error('Error uploading photo:', error);
       alert('Error al subir la foto');
+    } finally {
       setUploading(false);
     }
   };
