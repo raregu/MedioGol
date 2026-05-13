@@ -184,39 +184,34 @@ export const ValidatePlayer = () => {
     setError('');
 
     try {
-      // ── Intento 1: BarcodeDetector nativo (iOS 17+, mismo motor que la cámara) ──
-      if ('BarcodeDetector' in window) {
+      const objectUrl = URL.createObjectURL(file);
+      const img = new Image();
+      img.src = objectUrl;
+      await img.decode();
+
+      // ── Intento 1: BarcodeDetector nativo (iOS 17+) ──
+      const hasBD = 'BarcodeDetector' in window;
+      if (hasBD) {
         try {
           // @ts-ignore
           const detector = new window.BarcodeDetector({ formats: ['qr_code'] });
-          const bitmap = await createImageBitmap(file);
           // @ts-ignore
-          const barcodes = await detector.detect(bitmap);
-          bitmap.close();
+          const barcodes = await detector.detect(img);
           if (barcodes.length > 0) {
+            URL.revokeObjectURL(objectUrl);
             const rawText = barcodes[0].rawValue;
-            console.log('BarcodeDetector QR:', rawText);
             const run = parseRunFromCedulaQR(rawText);
             if (run) { setRutSearch(run); searchByRut(run); return; }
-            setError(`QR: "${rawText.substring(0, 120)}"\nNo encontré RUN. Ingresa el RUT manualmente.`);
+            setError(`QR leído: "${rawText.substring(0, 150)}"\n\nNo encontré el RUN. Ingresa el RUT manualmente.`);
             setLoading(false);
             return;
           }
         } catch (bdErr) {
-          console.warn('BarcodeDetector falló, intentando jsQR:', bdErr);
+          console.warn('BarcodeDetector error:', bdErr);
         }
       }
 
       // ── Intento 2: jsQR con múltiples recortes ──
-      const objectUrl = URL.createObjectURL(file);
-      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-        const i = new Image();
-        i.onload = () => resolve(i);
-        i.onerror = reject;
-        i.src = objectUrl;
-      });
-      URL.revokeObjectURL(objectUrl);
-
       const { default: jsQR } = await import('jsqr');
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d')!;
@@ -225,8 +220,8 @@ export const ValidatePlayer = () => {
 
       const crops = [
         { x: 0,                  y: 0, w: W,                  h: H                  },
-        { x: Math.floor(W*0.5),  y: 0, w: Math.floor(W*0.5),  h: Math.floor(H*0.55) },
-        { x: 0,                  y: 0, w: Math.floor(W*0.5),  h: Math.floor(H*0.55) },
+        { x: Math.floor(W*0.5),  y: 0, w: Math.floor(W*0.5),  h: Math.floor(H*0.6)  },
+        { x: 0,                  y: 0, w: Math.floor(W*0.5),  h: Math.floor(H*0.6)  },
         { x: Math.floor(W*0.55), y: 0, w: Math.floor(W*0.45), h: Math.floor(H*0.5)  },
         { x: 0,                  y: 0, w: Math.floor(W*0.45), h: Math.floor(H*0.5)  },
       ];
@@ -236,24 +231,24 @@ export const ValidatePlayer = () => {
         canvas.height = crop.h;
         ctx.drawImage(img, crop.x, crop.y, crop.w, crop.h, 0, 0, crop.w, crop.h);
         const imageData = ctx.getImageData(0, 0, crop.w, crop.h);
-        const result = jsQR(imageData.data, imageData.width, imageData.height, {
-          inversionAttempts: 'attemptBoth',
-        });
+        const result = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'attemptBoth' });
         if (result) {
-          console.log('jsQR QR cédula:', result.data);
+          URL.revokeObjectURL(objectUrl);
           const run = parseRunFromCedulaQR(result.data);
           if (run) { setRutSearch(run); searchByRut(run); return; }
-          setError(`QR: "${result.data.substring(0, 120)}"\nNo encontré RUN. Ingresa el RUT manualmente.`);
+          setError(`QR leído: "${result.data.substring(0, 150)}"\n\nNo encontré el RUN. Ingresa el RUT manualmente.`);
           setLoading(false);
           return;
         }
       }
 
-      setError('No se pudo leer el QR. Evita brillos, usa buena luz y enfoca solo el reverso de la cédula.');
+      URL.revokeObjectURL(objectUrl);
+      const bdInfo = hasBD ? 'BarcodeDetector: no encontró QR.' : 'BarcodeDetector: no disponible en este iOS.';
+      setError(`No se pudo leer el QR. ${bdInfo}\n\nIngresa el RUT manualmente abajo.`);
       setLoading(false);
     } catch (err) {
       console.error('Error leyendo QR cédula:', err);
-      setError('Error al procesar la imagen.');
+      setError('Error al procesar la imagen. Ingresa el RUT manualmente.');
       setLoading(false);
     }
   };
