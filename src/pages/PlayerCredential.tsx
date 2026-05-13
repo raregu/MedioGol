@@ -27,6 +27,7 @@ export const PlayerCredentialPage = () => {
           rut,
           date_of_birth,
           photo_url,
+          profile_photo,
           position,
           estado_verificacion,
           foto_bloqueada,
@@ -47,8 +48,14 @@ export const PlayerCredentialPage = () => {
         .limit(1)
         .single();
 
+      // Construir URL de foto: priorizar profile_photo (Storage) sobre photo_url (URL externa)
+      const photoUrl = data.profile_photo
+        ? `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/player-photos/${data.profile_photo}`
+        : data.photo_url || null;
+
       const credentialData: PlayerCredential = {
         ...data,
+        photo_url: photoUrl,
         team_name: teamData?.base_teams?.name || 'Sin equipo',
         team_logo: teamData?.base_teams?.logo_url,
       };
