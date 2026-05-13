@@ -146,26 +146,23 @@ export const ValidatePlayer = () => {
     }
   };
 
-  // ─── ESCÁNER PDF417 CÉDULA CHILENA ───────────────────────
-  const parseCedulaChilena = (rawText: string): string | null => {
+  // ─── ESCÁNER QR CÉDULA CHILENA ───────────────────────────
+  // La cédula chilena tiene un QR que apunta a Registro Civil,
+  // la URL contiene el RUN como parámetro: ?RUN=12345678-9
+  const parseRunFromCedulaQR = (text: string): string | null => {
     try {
-      // El PDF417 de la cédula chilena puede venir en distintos formatos:
-      // Formato 1: "APELLIDO1 APELLIDO2 NOMBRES;DDMMAAAA;DDMMAAAA;SEX;NAC;RUN"
-      // Formato 2: campos separados por punto y coma
-      const parts = rawText.split(';');
+      // Caso 1: URL de Registro Civil con parámetro RUN
+      // Ej: https://portal.sidiv.registrocivil.cl/docstatus?RUN=14508743-0&type=CEDULA...
+      const runParam = text.match(/[?&]RUN=([0-9]{7,8}-?[0-9kK])/i);
+      if (runParam) return runParam[1].replace('-', '');
 
-      // Buscar el RUN/RUT en cualquier parte del texto (patrón numérico final)
-      const runRegex = /\b(\d{7,8}[-]?[\dkK])\b/g;
-      const matches = rawText.match(runRegex);
-      if (matches && matches.length > 0) {
-        return matches[matches.length - 1].replace('-', ''); // último match suele ser el RUN
-      }
+      // Caso 2: el texto contiene directamente el RUN (formato 12345678-9)
+      const directRun = text.match(/\b(\d{7,8})-([0-9kK])\b/i);
+      if (directRun) return directRun[1] + directRun[2];
 
-      // Fallback: buscar en el último campo separado por ;
-      if (parts.length >= 2) {
-        const lastPart = parts[parts.length - 1].trim();
-        if (/^\d{7,8}[\dkK]$/.test(lastPart)) return lastPart;
-      }
+      // Caso 3: el texto contiene un RUN sin guión
+      const plainRun = text.match(/\b(\d{7,8}[0-9kK])\b/g);
+      if (plainRun && plainRun.length > 0) return plainRun[0];
 
       return null;
     } catch {
@@ -173,66 +170,52 @@ export const ValidatePlayer = () => {
     }
   };
 
-  const handleCedulaPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    // Reset input para permitir seleccionar el mismo archivo de nuevo
-    e.target.value = '';
-
-    setLoading(true);
+  const startCedulaScanner = async () => {
     setError('');
+    setCedulaScanning(true);
+    await new Promise(r => setTimeout(r, 150));
+    const scanner = new Html5Qrcode('cedula-qr-reader');
+    cedulaScannerRef.current = scanner;
     try {
-      const { BrowserMultiFormatReader, BarcodeFormat, DecodeHintType } = await import('@zxing/browser');
-
-      const hints = new Map();
-      hints.set(DecodeHintType.POSSIBLE_FORMATS, [
-        BarcodeFormat.PDF_417,
-        BarcodeFormat.QR_CODE,
-        BarcodeFormat.DATA_MATRIX,
-        BarcodeFormat.AZTEC,
-        BarcodeFormat.CODE_128,
-      ]);
-      hints.set(DecodeHintType.TRY_HARDER, true);
-      hints.set(DecodeHintType.PURE_BARCODE, false);
-
-      const reader = new BrowserMultiFormatReader(hints);
-
-      // Usar URL del archivo directamente — método más confiable en iOS
-      const objectUrl = URL.createObjectURL(file);
-
-      const img = document.createElement('img');
-      img.src = objectUrl;
-      await new Promise<void>((resolve, reject) => {
-        img.onload = () => resolve();
-        img.onerror = reject;
-      });
-
-      const result = await reader.decodeFromImageElement(img);
-      URL.revokeObjectURL(objectUrl);
-
-      console.log('PDF417 raw text:', result.getText());
-
-      const run = parseCedulaChilena(result.getText());
-      if (run) {
-        setRutSearch(run);
-        searchByRut(run);
-      } else {
-        setError(`Código leído pero no se encontró RUN. Datos: "${result.getText().substring(0, 60)}"`);
-        setLoading(false);
-      }
-    } catch (err) {
-      console.error('PDF417 decode error:', err);
-      setError('No se pudo leer el código de barras. Intenta: acercar más, mejor luz y foto bien enfocada al código rectangular.');
-      setLoading(false);
+      await scanner.start(
+        { facingMode: 'environment' },
+        {
+          fps: 10,
+          qrbox: { width: 220, height: 220 },
+          videoConstraints: {
+            facingMode: 'environment',
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+          },
+          formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
+        },
+        (decodedText) => {
+          scanner.stop().then(() => {
+            setCedulaScanning(false);
+            console.log('QR cédula:', decodedText);
+            const run = parseRunFromCedulaQR(decodedText);
+            if (run) {
+              setRutSearch(run);
+              searchByRut(run);
+            } else {
+              setError(`QR leído: "${decodedText.substring(0, 120)}"\n\nNo se encontró RUN. Ingresa el RUT manualmente.`);
+            }
+          });
+        },
+        () => {}
+      );
+    } catch {
+      setCedulaScanning(false);
+      setError('No se pudo acceder a la cámara.');
     }
   };
 
-  const startCedulaScanner = () => {
-    document.getElementById('cedula-photo-input')?.click();
-  };
-
   const stopCedulaScanner = () => {
-    setCedulaScanning(false);
+    if (cedulaScannerRef.current) {
+      cedulaScannerRef.current.stop().catch(() => {}).finally(() => setCedulaScanning(false));
+    } else {
+      setCedulaScanning(false);
+    }
   };
 
   // ─── HELPERS ──────────────────────────────────────────────
@@ -430,43 +413,22 @@ export const ValidatePlayer = () => {
               <h2 className="text-lg font-black text-gray-900">Leer Cédula de Identidad</h2>
             </div>
 
-            {!loading && (
+            {!loading && !cedulaScanning && (
               <div className="space-y-4">
-                {/* Botón para fotografiar el código PDF417 */}
                 <button
                   onClick={startCedulaScanner}
-                  className="w-full flex items-center justify-center gap-3 py-5 bg-gradient-to-r from-emerald-500 to-emerald-700 text-white rounded-2xl hover:from-emerald-600 hover:to-emerald-800 transition-all font-bold text-lg shadow-lg"
+                  className="w-full flex items-center justify-center gap-3 py-5 bg-gradient-to-r from-emerald-500 to-emerald-700 text-white rounded-2xl font-bold text-lg shadow-lg active:opacity-80"
                 >
                   <ScanLine className="h-7 w-7" />
-                  Fotografiar Código de Barras
+                  Escanear QR de la cédula
                 </button>
-                <input
-                  id="cedula-photo-input"
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={handleCedulaPhoto}
-                  className="hidden"
-                />
-                <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-4 text-sm text-amber-800">
-                  <p className="font-black mb-1">📷 Cómo fotografiar la cédula</p>
-                  <p>Voltea la cédula al <strong>reverso</strong> y enfoca el <strong>código de barras rectangular largo</strong> (PDF417). Hazlo con buena luz y en foco.</p>
-                  <p className="mt-2">Si no funciona, ingresa el RUT manualmente abajo.</p>
+
+                <div className="relative flex items-center gap-3">
+                  <div className="flex-1 h-px bg-gray-200" />
+                  <span className="text-xs text-gray-400 font-bold">O ingresa el RUT</span>
+                  <div className="flex-1 h-px bg-gray-200" />
                 </div>
-              </div>
-            )}
 
-            {loading && (
-              <div className="w-full flex items-center justify-center gap-3 py-5 bg-emerald-50 rounded-2xl border-2 border-emerald-200">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-600" />
-                <span className="font-bold text-emerald-700">Buscando jugador...</span>
-              </div>
-            )}
-
-            {/* Búsqueda manual por RUT */}
-            {!cedulaScanning && !loading && (
-              <div>
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 text-center">O ingresa el RUT manualmente</p>
                 <div className="flex gap-3">
                   <div className="relative flex-1">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -487,6 +449,25 @@ export const ValidatePlayer = () => {
                     Buscar
                   </button>
                 </div>
+              </div>
+            )}
+
+            {cedulaScanning && (
+              <div className="space-y-3">
+                <p className="text-sm font-bold text-center text-gray-700">
+                  Acerca la cámara al <span className="text-emerald-600">QR cuadrado</span> del reverso hasta que llene el cuadro
+                </p>
+                <div id="cedula-qr-reader" className="w-full rounded-2xl overflow-hidden" />
+                <button onClick={stopCedulaScanner} className="w-full flex items-center justify-center gap-2 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 font-bold">
+                  <CameraOff className="h-5 w-5" /> Cancelar
+                </button>
+              </div>
+            )}
+
+            {loading && (
+              <div className="w-full flex items-center justify-center gap-3 py-5 bg-emerald-50 rounded-2xl border-2 border-emerald-200">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-600" />
+                <span className="font-bold text-emerald-700">Buscando jugador...</span>
               </div>
             )}
 
