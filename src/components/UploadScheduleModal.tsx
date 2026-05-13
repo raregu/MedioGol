@@ -160,15 +160,29 @@ export default function UploadScheduleModal({ championshipId, teams, onClose, on
 
   const downloadTemplate = async () => {
     const { utils, writeFile } = await import('xlsx');
-    const data = [
+
+    // Hoja 1: Programación (plantilla con ejemplos)
+    const scheduleData = [
       ['Jornada', 'Fecha', 'Hora', 'Local', 'Visita', 'Cancha'],
       [1, '01/06/2026', '15:00', teams[0]?.name || 'Equipo A', teams[1]?.name || 'Equipo B', 'Cancha 1'],
       [1, '01/06/2026', '17:00', teams[2]?.name || 'Equipo C', teams[3]?.name || 'Equipo D', 'Cancha 2'],
     ];
-    const ws = utils.aoa_to_sheet(data);
-    ws['!cols'] = [{ wch: 10 }, { wch: 14 }, { wch: 8 }, { wch: 25 }, { wch: 25 }, { wch: 20 }];
+    const ws1 = utils.aoa_to_sheet(scheduleData);
+    ws1['!cols'] = [{ wch: 10 }, { wch: 14 }, { wch: 8 }, { wch: 30 }, { wch: 30 }, { wch: 20 }];
+
+    // Hoja 2: Equipos (para copiar/pegar el nombre exacto)
+    const teamsData = [
+      ['Equipos del Campeonato'],
+      ['(Copia y pega el nombre exacto en las columnas Local y Visita)'],
+      [],
+      ...teams.map(t => [t.name]),
+    ];
+    const ws2 = utils.aoa_to_sheet(teamsData);
+    ws2['!cols'] = [{ wch: 40 }];
+
     const wb = utils.book_new();
-    utils.book_append_sheet(wb, ws, 'Programacion');
+    utils.book_append_sheet(wb, ws1, 'Programacion');
+    utils.book_append_sheet(wb, ws2, 'Equipos');
     writeFile(wb, 'plantilla_programacion.xlsx');
   };
 
