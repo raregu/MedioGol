@@ -11,6 +11,15 @@ import {
 
 type ScanMode = 'select' | 'qr' | 'cedula';
 
+interface CurrentMatch {
+  id: string;
+  home_team: string;
+  away_team: string;
+  match_date: string;
+  status: string;
+  championship: string;
+}
+
 export const ValidatePlayer = () => {
   const { profile } = useAuth();
   const [mode, setMode] = useState<ScanMode>('select');
@@ -20,20 +29,62 @@ export const ValidatePlayer = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
+  const [existingValidation, setExistingValidation] = useState<{ result: string; notas: string | null } | null>(null);
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [cedulaScanning, setCedulaScanning] = useState(false);
+  const [currentMatch, setCurrentMatch] = useState<CurrentMatch | null>(null);
+  const [matchLoading, setMatchLoading] = useState(true);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const cedulaScannerRef = useRef<Html5Qrcode | null>(null);
 
   const isAuthorized = profile && ['admin_sistema', 'admin_campeonato', 'encargado_turno'].includes(profile.role);
 
   useEffect(() => {
-    return () => {
-      stopAllCameras();
-    };
+    fetchCurrentMatch();
+    return () => { stopAllCameras(); };
   }, []);
+
+  const fetchCurrentMatch = async () => {
+    setMatchLoading(true);
+    try {
+      // Buscar partido en juego ahora, o el más próximo (hasta 3h en el futuro)
+      const now = new Date().toISOString();
+      const in3h = new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString();
+      const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+
+      const { data } = await supabase
+        .from('matches')
+        .select(`
+          id, match_date, status,
+          home_team:teams!matches_home_team_id_fkey(name),
+          away_team:teams!matches_away_team_id_fkey(name),
+          championship:championships(name)
+        `)
+        .in('status', ['playing', 'scheduled'])
+        .gte('match_date', twoHoursAgo)
+        .lte('match_date', in3h)
+        .order('match_date', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (data) {
+        setCurrentMatch({
+          id: data.id,
+          match_date: data.match_date,
+          status: data.status,
+          home_team: (data.home_team as any)?.name || '?',
+          away_team: (data.away_team as any)?.name || '?',
+          championship: (data.championship as any)?.name || '',
+        });
+      }
+    } catch (e) {
+      console.error('Error buscando partido:', e);
+    } finally {
+      setMatchLoading(false);
+    }
+  };
 
   const stopAllCameras = () => {
     if (scannerRef.current) {
@@ -48,6 +99,7 @@ export const ValidatePlayer = () => {
     stopAllCameras();
     setPlayerData(null);
     setValidationResult(null);
+    setExistingValidation(null);
     setQrToken('');
     setRutSearch('');
     setNotes('');
@@ -267,14 +319,27 @@ export const ValidatePlayer = () => {
 
   // ─── HELPERS ──────────────────────────────────────────────
   const buildAndSetPlayer = async (data: any) => {
-    const { data: teamData } = await supabase
-      .from('base_team_players')
-      .select('base_teams(name, logo_url)')
-      .eq('player_id', data.id)
-      .eq('status', 'active')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
+    const [teamRes, existingRes] = await Promise.all([
+      supabase
+        .from('base_team_players')
+        .select('base_teams(name, logo_url)')
+        .eq('player_id', data.id)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      // Verificar si ya fue validado en este partido
+      currentMatch
+        ? supabase
+            .from('player_validation_logs')
+            .select('validation_result, notas')
+            .eq('player_id', data.id)
+            .eq('match_id', currentMatch.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
+    ]);
 
     const photoUrl = data.profile_photo
       ? `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/player-photos/${data.profile_photo}`
@@ -283,9 +348,16 @@ export const ValidatePlayer = () => {
     setPlayerData({
       ...data,
       photo_url: photoUrl,
-      team_name: teamData?.base_teams?.name || 'Sin equipo',
-      team_logo: teamData?.base_teams?.logo_url,
+      team_name: teamRes.data?.base_teams?.name || 'Sin equipo',
+      team_logo: teamRes.data?.base_teams?.logo_url,
     });
+
+    if (existingRes.data) {
+      setExistingValidation({
+        result: existingRes.data.validation_result,
+        notas: existingRes.data.notas,
+      });
+    }
   };
 
   const handleValidation = async (result: ValidationResult) => {
@@ -295,6 +367,7 @@ export const ValidatePlayer = () => {
       await supabase.from('player_validation_logs').insert({
         player_id: playerData.id,
         validated_by: profile.id,
+        match_id: currentMatch?.id || null,
         validation_result: result,
         notas: notes.trim() || null,
       });
@@ -351,6 +424,45 @@ export const ValidatePlayer = () => {
           <h1 className="text-3xl md:text-4xl font-black text-gray-900 mb-2">Validación en Cancha</h1>
           <p className="text-gray-600 font-medium">Verifica la identidad del jugador antes del partido</p>
         </div>
+
+        {/* ── PARTIDO ACTUAL ── */}
+        {matchLoading ? (
+          <div className="bg-white rounded-2xl shadow p-4 flex items-center gap-3 border-2 border-gray-100">
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600" />
+            <span className="text-gray-500 text-sm font-medium">Buscando partido próximo...</span>
+          </div>
+        ) : currentMatch ? (
+          <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-2xl shadow-xl p-5 text-white">
+            <p className="text-blue-200 text-xs font-bold uppercase tracking-wider mb-2">Partido a validar</p>
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex-1 text-center">
+                <p className="text-lg font-black">{currentMatch.home_team}</p>
+              </div>
+              <div className="text-center">
+                <span className="text-2xl font-black text-blue-200">vs</span>
+              </div>
+              <div className="flex-1 text-center">
+                <p className="text-lg font-black">{currentMatch.away_team}</p>
+              </div>
+            </div>
+            <div className="flex items-center justify-between mt-3 pt-3 border-t border-blue-500">
+              <span className="text-xs text-blue-200">{currentMatch.championship}</span>
+              <span className={`text-xs font-bold px-2 py-1 rounded-full ${
+                currentMatch.status === 'playing' ? 'bg-green-500 text-white' : 'bg-blue-500 text-white'
+              }`}>
+                {currentMatch.status === 'playing' ? '🔴 En juego' : `⏰ ${new Date(currentMatch.match_date).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}`}
+              </span>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-yellow-50 border-2 border-yellow-200 rounded-2xl p-4 flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="font-bold text-yellow-800 text-sm">Sin partido próximo</p>
+              <p className="text-yellow-700 text-xs mt-1">No hay partidos programados en las próximas 3 horas. La validación se guardará sin partido asociado.</p>
+            </div>
+          </div>
+        )}
 
         {/* ── SELECTOR DE MODO ── */}
         {mode === 'select' && !playerData && !validationResult && (
@@ -586,17 +698,38 @@ export const ValidatePlayer = () => {
             </div>
 
             <div className="mt-6 pt-6 border-t-2 border-gray-700 space-y-4">
-              <div className="bg-yellow-500/20 border-2 border-yellow-500 rounded-xl p-4 flex items-start gap-3">
-                <Camera className="h-5 w-5 text-yellow-400 flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-gray-300 font-medium">
-                  Compara visualmente la foto con el rostro del jugador antes de validar.
-                </p>
-              </div>
+
+              {/* Ya validado en este partido */}
+              {existingValidation ? (
+                <div className={`p-4 rounded-xl border-2 ${
+                  existingValidation.result === 'aprobado' ? 'bg-green-500/20 border-green-500' :
+                  existingValidation.result === 'sospechoso' ? 'bg-yellow-500/20 border-yellow-500' :
+                  'bg-red-500/20 border-red-500'
+                }`}>
+                  <p className="text-white font-black text-sm uppercase tracking-wider mb-1">
+                    Ya validado para este partido
+                  </p>
+                  <div className="flex items-center gap-2 mt-2">
+                    {existingValidation.result === 'aprobado' && <><CheckCircle2 className="h-5 w-5 text-green-400" /><span className="text-green-300 font-bold">Aprobado</span></>}
+                    {existingValidation.result === 'sospechoso' && <><AlertTriangle className="h-5 w-5 text-yellow-400" /><span className="text-yellow-300 font-bold">Sospechoso</span></>}
+                    {existingValidation.result === 'rechazado' && <><XCircle className="h-5 w-5 text-red-400" /><span className="text-red-300 font-bold">Rechazado</span></>}
+                  </div>
+                  {existingValidation.notas && <p className="text-gray-400 text-xs mt-2">{existingValidation.notas}</p>}
+                  <p className="text-gray-500 text-xs mt-3">¿Cambiar validación?</p>
+                </div>
+              ) : (
+                <div className="bg-yellow-500/20 border-2 border-yellow-500 rounded-xl p-4 flex items-start gap-3">
+                  <Camera className="h-5 w-5 text-yellow-400 flex-shrink-0 mt-0.5" />
+                  <p className="text-sm text-gray-300 font-medium">
+                    Compara la foto con el rostro del jugador antes de validar.
+                  </p>
+                </div>
+              )}
 
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="Notas opcionales sobre la validación..."
+                placeholder="Notas opcionales..."
                 rows={2}
                 className="w-full px-4 py-3 bg-gray-800 border-2 border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 text-white placeholder-gray-500"
               />
@@ -604,7 +737,7 @@ export const ValidatePlayer = () => {
               <div className="flex flex-col md:flex-row gap-3">
                 <button onClick={() => handleValidation('aprobado')} disabled={submitting}
                   className="flex-1 flex items-center justify-center gap-2 px-6 py-4 bg-green-500 text-white rounded-xl hover:bg-green-600 font-bold shadow-lg disabled:opacity-50">
-                  <CheckCircle2 className="h-5 w-5" />Jugador Válido
+                  <CheckCircle2 className="h-5 w-5" />Válido
                 </button>
                 <button onClick={() => handleValidation('sospechoso')} disabled={submitting}
                   className="flex-1 flex items-center justify-center gap-2 px-6 py-4 bg-yellow-500 text-white rounded-xl hover:bg-yellow-600 font-bold shadow-lg disabled:opacity-50">
