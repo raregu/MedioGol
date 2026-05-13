@@ -177,51 +177,66 @@ export const ValidatePlayer = () => {
     setError('');
     setCedulaScanning(true);
     await new Promise(r => setTimeout(r, 100));
-    const scanner = new Html5Qrcode('cedula-reader', {
-      formatsToSupport: [
-        Html5QrcodeSupportedFormats.PDF_417,
-        Html5QrcodeSupportedFormats.QR_CODE,
-        Html5QrcodeSupportedFormats.DATA_MATRIX,
-      ],
-      verbose: false,
-    });
-    cedulaScannerRef.current = scanner;
     try {
-      await scanner.start(
-        { facingMode: 'environment', aspectRatio: 1.777 },
-        {
-          fps: 15,
-          qrbox: { width: 320, height: 160 },
-          videoConstraints: {
-            facingMode: 'environment',
-            width: { ideal: 1920 },
-            height: { ideal: 1080 },
-          },
-        },
-        (decodedText) => {
-          scanner.stop().then(() => {
+      const { BrowserMultiFormatReader, BarcodeFormat, DecodeHintType } = await import('@zxing/browser');
+
+      const hints = new Map();
+      hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+        BarcodeFormat.PDF_417,
+        BarcodeFormat.QR_CODE,
+        BarcodeFormat.DATA_MATRIX,
+      ]);
+      hints.set(DecodeHintType.TRY_HARDER, true);
+
+      const codeReader = new BrowserMultiFormatReader(hints, {
+        delayBetweenScanAttempts: 100,
+        delayBetweenScanSuccess: 500,
+      });
+
+      const videoEl = document.getElementById('cedula-video') as HTMLVideoElement;
+
+      const devices = await BrowserMultiFormatReader.listVideoInputDevices();
+      // Preferir cámara trasera
+      const backCamera = devices.find(d =>
+        d.label.toLowerCase().includes('back') ||
+        d.label.toLowerCase().includes('rear') ||
+        d.label.toLowerCase().includes('trasera') ||
+        d.label.toLowerCase().includes('environment')
+      ) || devices[devices.length - 1];
+
+      const deviceId = backCamera?.deviceId;
+
+      (cedulaScannerRef as any).current = codeReader;
+
+      await codeReader.decodeFromVideoDevice(
+        deviceId,
+        videoEl,
+        (result, error) => {
+          if (result) {
+            codeReader.reset();
             setCedulaScanning(false);
-            const run = parseCedulaChilena(decodedText);
+            const run = parseCedulaChilena(result.getText());
             if (run) {
               setRutSearch(run);
               searchByRut(run);
             } else {
-              setError('No se pudo leer el RUN de la cédula. Intenta nuevamente o ingrésalo manualmente.');
+              setError('No se pudo leer el RUN. Intenta de nuevo o ingrésalo manualmente.');
             }
-          });
-        },
-        () => {}
+          }
+        }
       );
-    } catch {
+    } catch (err) {
+      console.error(err);
       setCedulaScanning(false);
       setError('No se pudo acceder a la cámara. Verifica los permisos.');
     }
   };
 
   const stopCedulaScanner = () => {
-    if (cedulaScannerRef.current) {
-      cedulaScannerRef.current.stop().catch(() => {}).finally(() => setCedulaScanning(false));
+    if ((cedulaScannerRef as any).current?.reset) {
+      (cedulaScannerRef as any).current.reset();
     }
+    setCedulaScanning(false);
   };
 
   // ─── HELPERS ──────────────────────────────────────────────
@@ -437,10 +452,24 @@ export const ValidatePlayer = () => {
 
             {cedulaScanning && (
               <div className="space-y-3">
-                <div id="cedula-reader" className="w-full rounded-2xl overflow-hidden" />
-                <p className="text-xs text-center text-gray-500 font-medium">
-                  Apunta al código de barras del <strong>reverso</strong> de la cédula
-                </p>
+                <div className="relative rounded-2xl overflow-hidden bg-black">
+                  <video
+                    id="cedula-video"
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full rounded-2xl"
+                    style={{ maxHeight: '60vh' }}
+                  />
+                  {/* Guía visual para el código de barras */}
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="border-4 border-emerald-400 rounded-lg opacity-80"
+                      style={{ width: '85%', height: '35%' }} />
+                  </div>
+                  <p className="absolute bottom-3 left-0 right-0 text-center text-white text-xs font-bold bg-black/50 py-2">
+                    Centra el código de barras del <strong>reverso</strong> de la cédula
+                  </p>
+                </div>
                 <button onClick={stopCedulaScanner} className="w-full flex items-center justify-center gap-2 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 font-bold">
                   <CameraOff className="h-5 w-5" />Cancelar
                 </button>
