@@ -238,9 +238,9 @@ export const PlayerCredentialPage = () => {
 
                 <div className="bg-white p-6 rounded-2xl shadow-2xl">
                   <QRCode
-                    value={`https://mediogol.app/validate/${credential.qr_token}`}
-                    size={160}
-                    level="H"
+                    value={`https://medio-gol.vercel.app/validate/${credential.qr_token}`}
+                    size={200}
+                    level="M"
                   />
                 </div>
               </div>

@@ -67,8 +67,16 @@ export const ValidatePlayer = () => {
     scannerRef.current = scanner;
     try {
       await scanner.start(
-        { facingMode: 'environment' },
-        { fps: 10, qrbox: { width: 250, height: 250 } },
+        { facingMode: 'environment', aspectRatio: 1.0 },
+        {
+          fps: 15,
+          qrbox: { width: 280, height: 280 },
+          videoConstraints: {
+            facingMode: 'environment',
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+          },
+        },
         (decodedText) => {
           scanner.stop().then(() => {
             setScanning(false);
@@ -180,8 +188,16 @@ export const ValidatePlayer = () => {
     cedulaScannerRef.current = scanner;
     try {
       await scanner.start(
-        { facingMode: 'environment' },
-        { fps: 10, qrbox: { width: 300, height: 150 } },
+        { facingMode: 'environment', aspectRatio: 1.777 },
+        {
+          fps: 15,
+          qrbox: { width: 320, height: 160 },
+          videoConstraints: {
+            facingMode: 'environment',
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+          },
+        },
         (decodedText) => {
           scanner.stop().then(() => {
             setCedulaScanning(false);
