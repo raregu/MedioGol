@@ -170,51 +170,76 @@ export const ValidatePlayer = () => {
     }
   };
 
-  const startCedulaScanner = async () => {
-    setError('');
-    setCedulaScanning(true);
-    await new Promise(r => setTimeout(r, 150));
-    const scanner = new Html5Qrcode('cedula-qr-reader');
-    cedulaScannerRef.current = scanner;
-    try {
-      await scanner.start(
-        { facingMode: 'environment' },
-        {
-          fps: 10,
-          qrbox: { width: 220, height: 220 },
-          videoConstraints: {
-            facingMode: 'environment',
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-          },
-          formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
-        },
-        (decodedText) => {
-          scanner.stop().then(() => {
-            setCedulaScanning(false);
-            console.log('QR cédula:', decodedText);
-            const run = parseRunFromCedulaQR(decodedText);
-            if (run) {
-              setRutSearch(run);
-              searchByRut(run);
-            } else {
-              setError(`QR leído: "${decodedText.substring(0, 120)}"\n\nNo se encontró RUN. Ingresa el RUT manualmente.`);
-            }
-          });
-        },
-        () => {}
-      );
-    } catch {
-      setCedulaScanning(false);
-      setError('No se pudo acceder a la cámara.');
-    }
+  const startCedulaScanner = () => {
+    document.getElementById('cedula-photo-input')?.click();
   };
 
-  const stopCedulaScanner = () => {
-    if (cedulaScannerRef.current) {
-      cedulaScannerRef.current.stop().catch(() => {}).finally(() => setCedulaScanning(false));
-    } else {
-      setCedulaScanning(false);
+  const stopCedulaScanner = () => setCedulaScanning(false);
+
+  const handleCedulaPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    setLoading(true);
+    setError('');
+
+    try {
+      // Cargar imagen con cámara nativa (alta resolución, buen autofoco)
+      const objectUrl = URL.createObjectURL(file);
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const i = new Image();
+        i.onload = () => resolve(i);
+        i.onerror = reject;
+        i.src = objectUrl;
+      });
+      URL.revokeObjectURL(objectUrl);
+
+      const { default: jsQR } = await import('jsqr');
+
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d')!;
+      const W = img.naturalWidth;
+      const H = img.naturalHeight;
+
+      // Probar imagen completa y recortes donde puede estar el QR
+      const crops = [
+        { x: 0,                  y: 0, w: W,                  h: H                  }, // completa
+        { x: Math.floor(W*0.5),  y: 0, w: Math.floor(W*0.5),  h: Math.floor(H*0.55) }, // mitad derecha
+        { x: 0,                  y: 0, w: Math.floor(W*0.5),  h: Math.floor(H*0.55) }, // mitad izquierda
+        { x: Math.floor(W*0.55), y: 0, w: Math.floor(W*0.45), h: Math.floor(H*0.5)  }, // sup-der
+        { x: 0,                  y: 0, w: Math.floor(W*0.45), h: Math.floor(H*0.5)  }, // sup-izq
+      ];
+
+      for (const crop of crops) {
+        canvas.width  = crop.w;
+        canvas.height = crop.h;
+        ctx.drawImage(img, crop.x, crop.y, crop.w, crop.h, 0, 0, crop.w, crop.h);
+        const imageData = ctx.getImageData(0, 0, crop.w, crop.h);
+
+        const result = jsQR(imageData.data, imageData.width, imageData.height, {
+          inversionAttempts: 'attemptBoth',
+        });
+
+        if (result) {
+          console.log('QR cédula:', result.data);
+          const run = parseRunFromCedulaQR(result.data);
+          if (run) {
+            setRutSearch(run);
+            searchByRut(run);
+          } else {
+            setError(`QR leído: "${result.data.substring(0, 120)}"\n\nNo encontré RUN. Ingresa el RUT manualmente.`);
+            setLoading(false);
+          }
+          return;
+        }
+      }
+
+      setError('No se pudo leer el QR. Asegúrate de que la foto esté bien iluminada y enfocada en el reverso de la cédula.');
+      setLoading(false);
+    } catch (err) {
+      console.error('Error leyendo QR cédula:', err);
+      setError('Error al procesar la imagen.');
+      setLoading(false);
     }
   };
 
@@ -413,15 +438,26 @@ export const ValidatePlayer = () => {
               <h2 className="text-lg font-black text-gray-900">Leer Cédula de Identidad</h2>
             </div>
 
-            {!loading && !cedulaScanning && (
+            {!loading && (
               <div className="space-y-4">
                 <button
                   onClick={startCedulaScanner}
                   className="w-full flex items-center justify-center gap-3 py-5 bg-gradient-to-r from-emerald-500 to-emerald-700 text-white rounded-2xl font-bold text-lg shadow-lg active:opacity-80"
                 >
-                  <ScanLine className="h-7 w-7" />
-                  Escanear QR de la cédula
+                  <Camera className="h-7 w-7" />
+                  Fotografiar reverso de la cédula
                 </button>
+                <input
+                  id="cedula-photo-input"
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handleCedulaPhoto}
+                  className="hidden"
+                />
+                <p className="text-xs text-center text-gray-400">
+                  Usa buena luz · Sin brillos · Enfoca el reverso completo
+                </p>
 
                 <div className="relative flex items-center gap-3">
                   <div className="flex-1 h-px bg-gray-200" />
@@ -449,18 +485,6 @@ export const ValidatePlayer = () => {
                     Buscar
                   </button>
                 </div>
-              </div>
-            )}
-
-            {cedulaScanning && (
-              <div className="space-y-3">
-                <p className="text-sm font-bold text-center text-gray-700">
-                  Acerca la cámara al <span className="text-emerald-600">QR cuadrado</span> del reverso hasta que llene el cuadro
-                </p>
-                <div id="cedula-qr-reader" className="w-full rounded-2xl overflow-hidden" />
-                <button onClick={stopCedulaScanner} className="w-full flex items-center justify-center gap-2 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 font-bold">
-                  <CameraOff className="h-5 w-5" /> Cancelar
-                </button>
               </div>
             )}
 
