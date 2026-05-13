@@ -574,6 +574,7 @@ export const PlayerProfile = () => {
                       jersey_number: formData.get('jersey_number') ? parseInt(formData.get('jersey_number') as string) : null,
                       date_of_birth: formData.get('date_of_birth') as string || null,
                       bio: formData.get('bio') as string || null,
+                      rut: formData.get('rut') as string || null,
                     })
                     .eq('id', playerId);
 
@@ -653,6 +654,20 @@ export const PlayerProfile = () => {
                   defaultValue={player.jersey_number || ''}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  RUT / DNI
+                </label>
+                <input
+                  type="text"
+                  name="rut"
+                  defaultValue={player.rut || ''}
+                  placeholder="12345678-9"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                />
+                <p className="text-xs text-gray-400 mt-1">Necesario para validación por cédula en cancha</p>
               </div>
 
               <div>
