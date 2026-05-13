@@ -176,6 +176,8 @@ export const ValidatePlayer = () => {
   const handleCedulaPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    // Reset input para permitir seleccionar el mismo archivo de nuevo
+    e.target.value = '';
 
     setLoading(true);
     setError('');
@@ -188,35 +190,39 @@ export const ValidatePlayer = () => {
         BarcodeFormat.QR_CODE,
         BarcodeFormat.DATA_MATRIX,
         BarcodeFormat.AZTEC,
+        BarcodeFormat.CODE_128,
       ]);
       hints.set(DecodeHintType.TRY_HARDER, true);
+      hints.set(DecodeHintType.PURE_BARCODE, false);
 
       const reader = new BrowserMultiFormatReader(hints);
 
-      // Crear imagen desde el archivo
-      const img = new Image();
-      img.src = URL.createObjectURL(file);
-      await new Promise(r => { img.onload = r; });
+      // Usar URL del archivo directamente — método más confiable en iOS
+      const objectUrl = URL.createObjectURL(file);
 
-      // Dibujar en canvas para decodificar
-      const canvas = document.createElement('canvas');
-      canvas.width = img.naturalWidth;
-      canvas.height = img.naturalHeight;
-      const ctx = canvas.getContext('2d')!;
-      ctx.drawImage(img, 0, 0);
+      const img = document.createElement('img');
+      img.src = objectUrl;
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = reject;
+      });
 
-      const result = await (reader as any).decodeFromCanvas(canvas);
+      const result = await reader.decodeFromImageElement(img);
+      URL.revokeObjectURL(objectUrl);
+
+      console.log('PDF417 raw text:', result.getText());
+
       const run = parseCedulaChilena(result.getText());
-
       if (run) {
         setRutSearch(run);
         searchByRut(run);
       } else {
-        setError('Se leyó el código pero no se encontró el RUN. Ingrésalo manualmente.');
+        setError(`Código leído pero no se encontró RUN. Datos: "${result.getText().substring(0, 60)}"`);
+        setLoading(false);
       }
     } catch (err) {
-      console.error(err);
-      setError('No se pudo leer el código. Asegúrate que la foto sea nítida y prueba de nuevo.');
+      console.error('PDF417 decode error:', err);
+      setError('No se pudo leer el código de barras. Intenta: acercar más, mejor luz y foto bien enfocada al código rectangular.');
       setLoading(false);
     }
   };
@@ -424,31 +430,28 @@ export const ValidatePlayer = () => {
               <h2 className="text-lg font-black text-gray-900">Leer Cédula de Identidad</h2>
             </div>
 
-            {/* Input oculto para foto nativa */}
-            <input
-              id="cedula-photo-input"
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-              onChange={handleCedulaPhoto}
-            />
-
-            {/* Botón tomar foto */}
             {!loading && (
-              <div className="space-y-3">
+              <div className="space-y-4">
+                {/* Botón para fotografiar el código PDF417 */}
                 <button
                   onClick={startCedulaScanner}
                   className="w-full flex items-center justify-center gap-3 py-5 bg-gradient-to-r from-emerald-500 to-emerald-700 text-white rounded-2xl hover:from-emerald-600 hover:to-emerald-800 transition-all font-bold text-lg shadow-lg"
                 >
-                  <Camera className="h-7 w-7" />
-                  Fotografiar Cédula
+                  <ScanLine className="h-7 w-7" />
+                  Fotografiar Código de Barras
                 </button>
-                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-sm text-emerald-800">
-                  <p className="font-bold mb-1">📋 Instrucciones:</p>
-                  <p>1. Voltea la cédula al <strong>reverso</strong></p>
-                  <p>2. Fotografía el <strong>código QR</strong> o el <strong>código de barras</strong></p>
-                  <p>3. Asegúrate que la foto sea <strong>nítida</strong> y bien iluminada</p>
+                <input
+                  id="cedula-photo-input"
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handleCedulaPhoto}
+                  className="hidden"
+                />
+                <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-4 text-sm text-amber-800">
+                  <p className="font-black mb-1">📷 Cómo fotografiar la cédula</p>
+                  <p>Voltea la cédula al <strong>reverso</strong> y enfoca el <strong>código de barras rectangular largo</strong> (PDF417). Hazlo con buena luz y en foco.</p>
+                  <p className="mt-2">Si no funciona, ingresa el RUT manualmente abajo.</p>
                 </div>
               </div>
             )}
@@ -456,7 +459,7 @@ export const ValidatePlayer = () => {
             {loading && (
               <div className="w-full flex items-center justify-center gap-3 py-5 bg-emerald-50 rounded-2xl border-2 border-emerald-200">
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-600" />
-                <span className="font-bold text-emerald-700">Leyendo cédula...</span>
+                <span className="font-bold text-emerald-700">Buscando jugador...</span>
               </div>
             )}
 
