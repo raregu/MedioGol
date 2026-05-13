@@ -184,7 +184,30 @@ export const ValidatePlayer = () => {
     setError('');
 
     try {
-      // Cargar imagen con cámara nativa (alta resolución, buen autofoco)
+      // ── Intento 1: BarcodeDetector nativo (iOS 17+, mismo motor que la cámara) ──
+      if ('BarcodeDetector' in window) {
+        try {
+          // @ts-ignore
+          const detector = new window.BarcodeDetector({ formats: ['qr_code'] });
+          const bitmap = await createImageBitmap(file);
+          // @ts-ignore
+          const barcodes = await detector.detect(bitmap);
+          bitmap.close();
+          if (barcodes.length > 0) {
+            const rawText = barcodes[0].rawValue;
+            console.log('BarcodeDetector QR:', rawText);
+            const run = parseRunFromCedulaQR(rawText);
+            if (run) { setRutSearch(run); searchByRut(run); return; }
+            setError(`QR: "${rawText.substring(0, 120)}"\nNo encontré RUN. Ingresa el RUT manualmente.`);
+            setLoading(false);
+            return;
+          }
+        } catch (bdErr) {
+          console.warn('BarcodeDetector falló, intentando jsQR:', bdErr);
+        }
+      }
+
+      // ── Intento 2: jsQR con múltiples recortes ──
       const objectUrl = URL.createObjectURL(file);
       const img = await new Promise<HTMLImageElement>((resolve, reject) => {
         const i = new Image();
@@ -195,19 +218,17 @@ export const ValidatePlayer = () => {
       URL.revokeObjectURL(objectUrl);
 
       const { default: jsQR } = await import('jsqr');
-
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d')!;
       const W = img.naturalWidth;
       const H = img.naturalHeight;
 
-      // Probar imagen completa y recortes donde puede estar el QR
       const crops = [
-        { x: 0,                  y: 0, w: W,                  h: H                  }, // completa
-        { x: Math.floor(W*0.5),  y: 0, w: Math.floor(W*0.5),  h: Math.floor(H*0.55) }, // mitad derecha
-        { x: 0,                  y: 0, w: Math.floor(W*0.5),  h: Math.floor(H*0.55) }, // mitad izquierda
-        { x: Math.floor(W*0.55), y: 0, w: Math.floor(W*0.45), h: Math.floor(H*0.5)  }, // sup-der
-        { x: 0,                  y: 0, w: Math.floor(W*0.45), h: Math.floor(H*0.5)  }, // sup-izq
+        { x: 0,                  y: 0, w: W,                  h: H                  },
+        { x: Math.floor(W*0.5),  y: 0, w: Math.floor(W*0.5),  h: Math.floor(H*0.55) },
+        { x: 0,                  y: 0, w: Math.floor(W*0.5),  h: Math.floor(H*0.55) },
+        { x: Math.floor(W*0.55), y: 0, w: Math.floor(W*0.45), h: Math.floor(H*0.5)  },
+        { x: 0,                  y: 0, w: Math.floor(W*0.45), h: Math.floor(H*0.5)  },
       ];
 
       for (const crop of crops) {
@@ -215,26 +236,20 @@ export const ValidatePlayer = () => {
         canvas.height = crop.h;
         ctx.drawImage(img, crop.x, crop.y, crop.w, crop.h, 0, 0, crop.w, crop.h);
         const imageData = ctx.getImageData(0, 0, crop.w, crop.h);
-
         const result = jsQR(imageData.data, imageData.width, imageData.height, {
           inversionAttempts: 'attemptBoth',
         });
-
         if (result) {
-          console.log('QR cédula:', result.data);
+          console.log('jsQR QR cédula:', result.data);
           const run = parseRunFromCedulaQR(result.data);
-          if (run) {
-            setRutSearch(run);
-            searchByRut(run);
-          } else {
-            setError(`QR leído: "${result.data.substring(0, 120)}"\n\nNo encontré RUN. Ingresa el RUT manualmente.`);
-            setLoading(false);
-          }
+          if (run) { setRutSearch(run); searchByRut(run); return; }
+          setError(`QR: "${result.data.substring(0, 120)}"\nNo encontré RUN. Ingresa el RUT manualmente.`);
+          setLoading(false);
           return;
         }
       }
 
-      setError('No se pudo leer el QR. Asegúrate de que la foto esté bien iluminada y enfocada en el reverso de la cédula.');
+      setError('No se pudo leer el QR. Evita brillos, usa buena luz y enfoca solo el reverso de la cédula.');
       setLoading(false);
     } catch (err) {
       console.error('Error leyendo QR cédula:', err);
