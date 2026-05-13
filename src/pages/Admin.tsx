@@ -4,7 +4,7 @@ import { ProtectedRoute } from '../components/ProtectedRoute';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { Championship, Team, Match, Sanction, Profile } from '../types/database';
-import { Trophy, Users, Calendar, AlertCircle, Plus, UserCog, CreditCard as Edit, MapPin, Trash2, Phone, Image } from 'lucide-react';
+import { Trophy, Users, Calendar, AlertCircle, Plus, UserCog, CreditCard as Edit, MapPin, Trash2, Phone, Image, FileSpreadsheet } from 'lucide-react';
 import { CreateChampionshipModal } from '../components/admin/CreateChampionshipModal';
 import { EditChampionshipModal } from '../components/admin/EditChampionshipModal';
 import { CreateTeamModal } from '../components/CreateTeamModal';
@@ -16,6 +16,7 @@ import { SportsComplexModal } from '../components/admin/SportsComplexModal';
 import ShiftManagerModal from '../components/admin/ShiftManagerModal';
 import { AssignCaptainModal } from '../components/admin/AssignCaptainModal';
 import { AdvertisementsManagementModal } from '../components/admin/AdvertisementsManagementModal';
+import UploadScheduleModal from '../components/UploadScheduleModal';
 
 interface SportsComplex {
   id: string;
@@ -56,6 +57,7 @@ export const Admin = () => {
   const [showCreateChampionship, setShowCreateChampionship] = useState(false);
   const [showCreateTeam, setShowCreateTeam] = useState(false);
   const [showCreateMatch, setShowCreateMatch] = useState(false);
+  const [showUploadSchedule, setShowUploadSchedule] = useState(false);
   const [showComplexModal, setShowComplexModal] = useState(false);
   const [showShiftManagerModal, setShowShiftManagerModal] = useState(false);
   const [showAdvertisementsModal, setShowAdvertisementsModal] = useState(false);
@@ -962,13 +964,22 @@ export const Admin = () => {
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
                         <h2 className="text-xl font-bold text-gray-900">Partidos ({matches.length})</h2>
-                        <button
-                          onClick={() => setShowCreateMatch(true)}
-                          className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
-                        >
-                          <Plus className="h-5 w-5" />
-                          Crear Partido
-                        </button>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setShowUploadSchedule(true)}
+                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                          >
+                            <FileSpreadsheet className="h-5 w-5" />
+                            Cargar Excel
+                          </button>
+                          <button
+                            onClick={() => setShowCreateMatch(true)}
+                            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+                          >
+                            <Plus className="h-5 w-5" />
+                            Crear Partido
+                          </button>
+                        </div>
                       </div>
 
                       {matches.length === 0 ? (
@@ -1409,6 +1420,20 @@ export const Admin = () => {
           <AdvertisementsManagementModal
             isOpen={showAdvertisementsModal}
             onClose={() => setShowAdvertisementsModal(false)}
+          />
+        )}
+
+        {showUploadSchedule && selectedChampionship && (
+          <UploadScheduleModal
+            championshipId={selectedChampionship}
+            teams={teams}
+            onClose={() => setShowUploadSchedule(false)}
+            onSuccess={() => {
+              setShowUploadSchedule(false);
+              if (selectedChampionship) {
+                fetchChampionshipData(selectedChampionship);
+              }
+            }}
           />
         )}
       </Layout>
