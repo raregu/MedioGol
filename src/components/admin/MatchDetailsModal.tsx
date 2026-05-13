@@ -10,6 +10,7 @@ interface Player {
 
 interface Goal {
   player_id: string;
+  team_id: string;   // equipo al que se le cuenta el gol
   minute: number;
   type: 'normal' | 'penalty' | 'own_goal';
 }
@@ -165,6 +166,7 @@ export const MatchDetailsModal = ({
           if (event.event_type === 'goal') {
             existingGoals.push({
               player_id: event.player_id,
+              team_id: event.team_id || '',
               minute: event.minute,
               type: (event.additional_info as any)?.type || 'normal',
             });
@@ -196,7 +198,7 @@ export const MatchDetailsModal = ({
   };
 
   const addGoal = () => {
-    setGoals([...goals, { player_id: '', minute: 0, type: 'normal' }]);
+    setGoals([...goals, { player_id: '', team_id: '', minute: 0, type: 'normal' }]);
   };
 
   const removeGoal = (index: number) => {
@@ -239,18 +241,15 @@ export const MatchDetailsModal = ({
       const eventsToInsert = [];
 
       for (const goal of goals) {
-        if (goal.player_id) {
-          const player = allPlayers.find((p) => p.id === goal.player_id);
-          if (player) {
-            eventsToInsert.push({
-              match_id: matchId,
-              player_id: goal.player_id,
-              team_id: player.team_id,
-              event_type: 'goal',
-              minute: goal.minute,
-              additional_info: { type: goal.type },
-            });
-          }
+        if (goal.player_id && goal.team_id) {
+          eventsToInsert.push({
+            match_id: matchId,
+            player_id: goal.player_id,
+            team_id: goal.team_id,
+            event_type: 'goal',
+            minute: goal.minute,
+            additional_info: { type: goal.type },
+          });
         }
       }
 
@@ -281,12 +280,9 @@ export const MatchDetailsModal = ({
         if (eventsError) throw eventsError;
       }
 
-      const homeGoals = goals.filter((g) =>
-        homePlayers.some((p) => p.id === g.player_id)
-      ).length;
-      const awayGoals = goals.filter((g) =>
-        awayPlayers.some((p) => p.id === g.player_id)
-      ).length;
+      // Contar goles por team_id explícito (evita problema si el mismo jugador está en ambos equipos)
+      const homeGoals = goals.filter((g) => g.player_id && g.team_id === homeTeamId).length;
+      const awayGoals = goals.filter((g) => g.player_id && g.team_id === awayTeamId).length;
 
       const { error: matchError } = await supabase
         .from('matches')
@@ -359,22 +355,27 @@ export const MatchDetailsModal = ({
                   <div key={index} className="flex gap-3 items-start bg-gray-50 p-3 rounded-lg">
                     <div className="flex-1 grid grid-cols-3 gap-3">
                       <select
-                        value={goal.player_id}
-                        onChange={(e) => updateGoal(index, 'player_id', e.target.value)}
+                        value={goal.team_id ? `${goal.team_id}:${goal.player_id}` : ''}
+                        onChange={(e) => {
+                          const [tid, pid] = e.target.value.split(':');
+                          const updated = [...goals];
+                          updated[index] = { ...updated[index], player_id: pid || '', team_id: tid || '' };
+                          setGoals(updated);
+                        }}
                         className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm"
                         required
                       >
                         <option value="">Seleccionar jugador</option>
                         <optgroup label={homeTeamName}>
                           {homePlayers.map((player) => (
-                            <option key={player.id} value={player.id}>
+                            <option key={`${homeTeamId}:${player.id}`} value={`${homeTeamId}:${player.id}`}>
                               {player.full_name}
                             </option>
                           ))}
                         </optgroup>
                         <optgroup label={awayTeamName}>
                           {awayPlayers.map((player) => (
-                            <option key={player.id} value={player.id}>
+                            <option key={`${awayTeamId}:${player.id}`} value={`${awayTeamId}:${player.id}`}>
                               {player.full_name}
                             </option>
                           ))}
