@@ -574,7 +574,7 @@ export const PlayerProfile = () => {
                       jersey_number: formData.get('jersey_number') ? parseInt(formData.get('jersey_number') as string) : null,
                       date_of_birth: formData.get('date_of_birth') as string || null,
                       bio: formData.get('bio') as string || null,
-                      rut: formData.get('rut') as string || null,
+                      rut: formData.get('rut') ? (formData.get('rut') as string).replace(/\./g, '').replace(/-/g, '').trim() : null,
                     })
                     .eq('id', playerId);
 
@@ -664,10 +664,10 @@ export const PlayerProfile = () => {
                   type="text"
                   name="rut"
                   defaultValue={player.rut || ''}
-                  placeholder="12345678-9"
+                  placeholder="123456789 (sin puntos ni guión)"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                 />
-                <p className="text-xs text-gray-400 mt-1">Necesario para validación por cédula en cancha</p>
+                <p className="text-xs text-gray-400 mt-1">Se guarda automáticamente sin puntos ni guión</p>
               </div>
 
               <div>
