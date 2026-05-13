@@ -188,63 +188,75 @@ export const ValidatePlayer = () => {
       const img = new Image();
       img.src = objectUrl;
       await img.decode();
+      URL.revokeObjectURL(objectUrl);
 
-      // ── Intento 1: BarcodeDetector nativo (iOS 17+) ──
-      const hasBD = 'BarcodeDetector' in window;
-      if (hasBD) {
+      // Escalar imagen a máximo 1600px para evitar problemas de memoria en iPhone
+      const MAX = 1600;
+      const scale = Math.min(1, MAX / Math.max(img.naturalWidth, img.naturalHeight));
+      const W = Math.round(img.naturalWidth  * scale);
+      const H = Math.round(img.naturalHeight * scale);
+
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d')!;
+      canvas.width  = W;
+      canvas.height = H;
+      ctx.drawImage(img, 0, 0, W, H);
+
+      // Recortes a probar (imagen escalada)
+      const crops = [
+        { x: 0,                  y: 0, w: W,                  h: H                  }, // completa
+        { x: Math.floor(W*0.5),  y: 0, w: Math.floor(W*0.5),  h: Math.floor(H*0.6)  }, // mitad der
+        { x: 0,                  y: 0, w: Math.floor(W*0.5),  h: Math.floor(H*0.6)  }, // mitad izq
+        { x: Math.floor(W*0.55), y: 0, w: Math.floor(W*0.45), h: Math.floor(H*0.5)  }, // sup-der
+        { x: 0,                  y: 0, w: Math.floor(W*0.45), h: Math.floor(H*0.5)  }, // sup-izq
+      ];
+
+      // ── Intento 1: BarcodeDetector nativo ──
+      // @ts-ignore
+      if ('BarcodeDetector' in window) {
         try {
           // @ts-ignore
           const detector = new window.BarcodeDetector({ formats: ['qr_code'] });
-          // @ts-ignore
-          const barcodes = await detector.detect(img);
-          if (barcodes.length > 0) {
-            URL.revokeObjectURL(objectUrl);
-            const rawText = barcodes[0].rawValue;
-            const run = parseRunFromCedulaQR(rawText);
-            if (run) { setRutSearch(run); searchByRut(run); return; }
-            setError(`QR leído: "${rawText.substring(0, 150)}"\n\nNo encontré el RUN. Ingresa el RUT manualmente.`);
-            setLoading(false);
-            return;
+          for (const crop of crops) {
+            const cropCanvas = document.createElement('canvas');
+            cropCanvas.width  = crop.w;
+            cropCanvas.height = crop.h;
+            cropCanvas.getContext('2d')!.drawImage(canvas, crop.x, crop.y, crop.w, crop.h, 0, 0, crop.w, crop.h);
+            // @ts-ignore
+            const barcodes = await detector.detect(cropCanvas);
+            if (barcodes.length > 0) {
+              const rawText = barcodes[0].rawValue;
+              const run = parseRunFromCedulaQR(rawText);
+              if (run) { setRutSearch(run); searchByRut(run); return; }
+              setError(`QR: "${rawText.substring(0, 150)}"\n\nNo encontré RUN. Ingresa el RUT manualmente.`);
+              setLoading(false);
+              return;
+            }
           }
         } catch (bdErr) {
           console.warn('BarcodeDetector error:', bdErr);
         }
       }
 
-      // ── Intento 2: jsQR con múltiples recortes ──
+      // ── Intento 2: jsQR ──
       const { default: jsQR } = await import('jsqr');
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d')!;
-      const W = img.naturalWidth;
-      const H = img.naturalHeight;
-
-      const crops = [
-        { x: 0,                  y: 0, w: W,                  h: H                  },
-        { x: Math.floor(W*0.5),  y: 0, w: Math.floor(W*0.5),  h: Math.floor(H*0.6)  },
-        { x: 0,                  y: 0, w: Math.floor(W*0.5),  h: Math.floor(H*0.6)  },
-        { x: Math.floor(W*0.55), y: 0, w: Math.floor(W*0.45), h: Math.floor(H*0.5)  },
-        { x: 0,                  y: 0, w: Math.floor(W*0.45), h: Math.floor(H*0.5)  },
-      ];
-
       for (const crop of crops) {
-        canvas.width  = crop.w;
-        canvas.height = crop.h;
-        ctx.drawImage(img, crop.x, crop.y, crop.w, crop.h, 0, 0, crop.w, crop.h);
-        const imageData = ctx.getImageData(0, 0, crop.w, crop.h);
+        const cropCanvas = document.createElement('canvas');
+        cropCanvas.width  = crop.w;
+        cropCanvas.height = crop.h;
+        cropCanvas.getContext('2d')!.drawImage(canvas, crop.x, crop.y, crop.w, crop.h, 0, 0, crop.w, crop.h);
+        const imageData = cropCanvas.getContext('2d')!.getImageData(0, 0, crop.w, crop.h);
         const result = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'attemptBoth' });
         if (result) {
-          URL.revokeObjectURL(objectUrl);
           const run = parseRunFromCedulaQR(result.data);
           if (run) { setRutSearch(run); searchByRut(run); return; }
-          setError(`QR leído: "${result.data.substring(0, 150)}"\n\nNo encontré el RUN. Ingresa el RUT manualmente.`);
+          setError(`QR: "${result.data.substring(0, 150)}"\n\nNo encontré RUN. Ingresa el RUT manualmente.`);
           setLoading(false);
           return;
         }
       }
 
-      URL.revokeObjectURL(objectUrl);
-      const bdInfo = hasBD ? 'BarcodeDetector: no encontró QR.' : 'BarcodeDetector: no disponible en este iOS.';
-      setError(`No se pudo leer el QR. ${bdInfo}\n\nIngresa el RUT manualmente abajo.`);
+      setError('No se pudo leer el QR automáticamente. Ingresa el RUT manualmente.');
       setLoading(false);
     } catch (err) {
       console.error('Error leyendo QR cédula:', err);
