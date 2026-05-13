@@ -137,15 +137,19 @@ export default function UploadScheduleModal({ championshipId, teams, onClose, on
     if (!validMatches.length) return;
     setImporting(true);
     try {
-      const rows = validMatches.map(m => ({
-        championship_id: championshipId,
-        home_team_id: m.home_team_id!,
-        away_team_id: m.away_team_id!,
-        match_date: `${m.fecha}T${m.hora}:00`,
-        round: m.jornada,
-        venue: m.cancha || null,
-        status: 'scheduled',
-      }));
+      const rows = validMatches.map(m => {
+        // Crear Date en hora local del navegador (Chile) y convertir a UTC para Supabase
+        const localDt = new Date(`${m.fecha}T${m.hora}:00`);
+        return {
+          championship_id: championshipId,
+          home_team_id: m.home_team_id!,
+          away_team_id: m.away_team_id!,
+          match_date: localDt.toISOString(),
+          round: m.jornada,
+          venue: m.cancha || null,
+          status: 'scheduled',
+        };
+      });
 
       const { error } = await supabase.from('matches').insert(rows);
       if (error) throw error;
