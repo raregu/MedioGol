@@ -173,10 +173,12 @@ export const ValidatePlayer = () => {
     }
   };
 
-  const startCedulaScanner = async () => {
+  const handleCedulaPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setLoading(true);
     setError('');
-    setCedulaScanning(true);
-    await new Promise(r => setTimeout(r, 100));
     try {
       const { BrowserMultiFormatReader, BarcodeFormat, DecodeHintType } = await import('@zxing/browser');
 
@@ -185,57 +187,45 @@ export const ValidatePlayer = () => {
         BarcodeFormat.PDF_417,
         BarcodeFormat.QR_CODE,
         BarcodeFormat.DATA_MATRIX,
+        BarcodeFormat.AZTEC,
       ]);
       hints.set(DecodeHintType.TRY_HARDER, true);
 
-      const codeReader = new BrowserMultiFormatReader(hints, {
-        delayBetweenScanAttempts: 100,
-        delayBetweenScanSuccess: 500,
-      });
+      const reader = new BrowserMultiFormatReader(hints);
 
-      const videoEl = document.getElementById('cedula-video') as HTMLVideoElement;
+      // Crear imagen desde el archivo
+      const img = new Image();
+      img.src = URL.createObjectURL(file);
+      await new Promise(r => { img.onload = r; });
 
-      const devices = await BrowserMultiFormatReader.listVideoInputDevices();
-      // Preferir cámara trasera
-      const backCamera = devices.find(d =>
-        d.label.toLowerCase().includes('back') ||
-        d.label.toLowerCase().includes('rear') ||
-        d.label.toLowerCase().includes('trasera') ||
-        d.label.toLowerCase().includes('environment')
-      ) || devices[devices.length - 1];
+      // Dibujar en canvas para decodificar
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(img, 0, 0);
 
-      const deviceId = backCamera?.deviceId;
+      const result = await (reader as any).decodeFromCanvas(canvas);
+      const run = parseCedulaChilena(result.getText());
 
-      (cedulaScannerRef as any).current = codeReader;
-
-      await codeReader.decodeFromVideoDevice(
-        deviceId,
-        videoEl,
-        (result, error) => {
-          if (result) {
-            codeReader.reset();
-            setCedulaScanning(false);
-            const run = parseCedulaChilena(result.getText());
-            if (run) {
-              setRutSearch(run);
-              searchByRut(run);
-            } else {
-              setError('No se pudo leer el RUN. Intenta de nuevo o ingrésalo manualmente.');
-            }
-          }
-        }
-      );
+      if (run) {
+        setRutSearch(run);
+        searchByRut(run);
+      } else {
+        setError('Se leyó el código pero no se encontró el RUN. Ingrésalo manualmente.');
+      }
     } catch (err) {
       console.error(err);
-      setCedulaScanning(false);
-      setError('No se pudo acceder a la cámara. Verifica los permisos.');
+      setError('No se pudo leer el código. Asegúrate que la foto sea nítida y prueba de nuevo.');
+      setLoading(false);
     }
   };
 
+  const startCedulaScanner = () => {
+    document.getElementById('cedula-photo-input')?.click();
+  };
+
   const stopCedulaScanner = () => {
-    if ((cedulaScannerRef as any).current?.reset) {
-      (cedulaScannerRef as any).current.reset();
-    }
     setCedulaScanning(false);
   };
 
@@ -434,52 +424,39 @@ export const ValidatePlayer = () => {
               <h2 className="text-lg font-black text-gray-900">Leer Cédula de Identidad</h2>
             </div>
 
-            {/* Escáner PDF417 */}
-            {!cedulaScanning && !loading && (
+            {/* Input oculto para foto nativa */}
+            <input
+              id="cedula-photo-input"
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={handleCedulaPhoto}
+            />
+
+            {/* Botón tomar foto */}
+            {!loading && (
               <div className="space-y-3">
                 <button
                   onClick={startCedulaScanner}
                   className="w-full flex items-center justify-center gap-3 py-5 bg-gradient-to-r from-emerald-500 to-emerald-700 text-white rounded-2xl hover:from-emerald-600 hover:to-emerald-800 transition-all font-bold text-lg shadow-lg"
                 >
-                  <ScanLine className="h-7 w-7" />
-                  Escanear Código de la Cédula
+                  <Camera className="h-7 w-7" />
+                  Fotografiar Cédula
                 </button>
-                <p className="text-xs text-center text-gray-500">
-                  Apunta la cámara al código de barras del <strong>reverso</strong> de la cédula chilena
-                </p>
-              </div>
-            )}
-
-            {cedulaScanning && (
-              <div className="space-y-3">
-                <div className="relative rounded-2xl overflow-hidden bg-black">
-                  <video
-                    id="cedula-video"
-                    autoPlay
-                    playsInline
-                    muted
-                    className="w-full rounded-2xl"
-                    style={{ maxHeight: '60vh' }}
-                  />
-                  {/* Guía visual para el código de barras */}
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div className="border-4 border-emerald-400 rounded-lg opacity-80"
-                      style={{ width: '85%', height: '35%' }} />
-                  </div>
-                  <p className="absolute bottom-3 left-0 right-0 text-center text-white text-xs font-bold bg-black/50 py-2">
-                    Centra el código de barras del <strong>reverso</strong> de la cédula
-                  </p>
+                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-sm text-emerald-800">
+                  <p className="font-bold mb-1">📋 Instrucciones:</p>
+                  <p>1. Voltea la cédula al <strong>reverso</strong></p>
+                  <p>2. Fotografía el <strong>código QR</strong> o el <strong>código de barras</strong></p>
+                  <p>3. Asegúrate que la foto sea <strong>nítida</strong> y bien iluminada</p>
                 </div>
-                <button onClick={stopCedulaScanner} className="w-full flex items-center justify-center gap-2 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 font-bold">
-                  <CameraOff className="h-5 w-5" />Cancelar
-                </button>
               </div>
             )}
 
             {loading && (
               <div className="w-full flex items-center justify-center gap-3 py-5 bg-emerald-50 rounded-2xl border-2 border-emerald-200">
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-600" />
-                <span className="font-bold text-emerald-700">Buscando jugador...</span>
+                <span className="font-bold text-emerald-700">Leyendo cédula...</span>
               </div>
             )}
 
