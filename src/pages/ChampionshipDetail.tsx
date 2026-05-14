@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react';
 import { Layout } from '../components/Layout';
 import { supabase } from '../lib/supabase';
 import { Championship, Match, Team, TeamStanding, PlayoffConfig, PlayoffMatch, Advertisement, Sponsor } from '../types/database';
-import { Trophy, Calendar, MapPin, Users, Target, AlertCircle, Phone, FileText, CreditCard as Edit, Shield, Award, AlertTriangle, Eye, Trash2, Zap } from 'lucide-react';
+import { Trophy, Calendar, MapPin, Users, Target, AlertCircle, Phone, FileText, CreditCard as Edit, Shield, Award, AlertTriangle, Eye, Trash2, Zap, Plus } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { MatchDetailsModal } from '../components/admin/MatchDetailsModal';
+import { CreateMatchModal } from '../components/admin/CreateMatchModal';
 import { SanctionsManagementModal } from '../components/admin/SanctionsManagementModal';
 import { MatchEventsModal } from '../components/MatchEventsModal';
 import { TeamPlayersModal } from '../components/TeamPlayersModal';
@@ -55,6 +56,7 @@ export const ChampionshipDetail = () => {
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [showMatchDetailsModal, setShowMatchDetailsModal] = useState(false);
+  const [showCreateMatch, setShowCreateMatch] = useState(false);
   const [showSanctionsModal, setShowSanctionsModal] = useState(false);
   const [showMatchEventsModal, setShowMatchEventsModal] = useState(false);
   const [showTeamPlayersModal, setShowTeamPlayersModal] = useState(false);
@@ -748,8 +750,9 @@ export const ChampionshipDetail = () => {
 
             {activeTab === 'matches' && (
               <div className="space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mb-6">
-                  <label className="text-sm font-medium text-gray-700">Filtrar:</label>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 mb-6">
+                  <div className="flex items-center gap-2 sm:gap-4">
+                    <label className="text-sm font-medium text-gray-700">Filtrar:</label>
                   <select
                     value={dateFilter}
                     onChange={(e) => setDateFilter(e.target.value)}
@@ -762,6 +765,16 @@ export const ChampionshipDetail = () => {
                     <option value="week">Esta semana</option>
                     <option value="month">Este mes</option>
                   </select>
+                  </div>
+                  {isAdmin && (
+                    <button
+                      onClick={() => setShowCreateMatch(true)}
+                      className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-medium"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Crear Partido
+                    </button>
+                  )}
                 </div>
                 {(() => {
                   const now = new Date();
@@ -844,7 +857,7 @@ export const ChampionshipDetail = () => {
                           <p className="font-semibold text-gray-900">{match.away_team?.name}</p>
                         </div>
                         <div className="flex gap-2">
-                          {isAdmin && (match.status === 'scheduled' || match.status === 'in_progress') && (
+                          {isAdmin && (
                             <button
                               onClick={() => {
                                 setSelectedMatch(match);
@@ -853,7 +866,7 @@ export const ChampionshipDetail = () => {
                               className="flex items-center gap-2 px-3 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-medium"
                             >
                               <Edit className="h-4 w-4" />
-                              Registrar Detalles
+                              {match.status === 'finished' || match.status === 'completed' ? 'Editar Detalles' : 'Registrar Detalles'}
                             </button>
                           )}
                           {(match.status === 'finished' || match.status === 'completed' || match.status === 'playing') && (
@@ -955,7 +968,7 @@ export const ChampionshipDetail = () => {
                           </div>
                         )}
                         <div className="flex flex-wrap gap-2 pt-2">
-                          {isAdmin && (match.status === 'scheduled' || match.status === 'in_progress') && (
+                          {isAdmin && (
                             <button
                               onClick={() => {
                                 setSelectedMatch(match);
@@ -964,7 +977,7 @@ export const ChampionshipDetail = () => {
                               className="flex items-center gap-1 px-2 py-1.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-xs font-medium"
                             >
                               <Edit className="h-3 w-3" />
-                              Registrar
+                              {match.status === 'finished' || match.status === 'completed' ? 'Editar' : 'Registrar'}
                             </button>
                           )}
                           {(match.status === 'finished' || match.status === 'completed' || match.status === 'playing') && (
@@ -1354,6 +1367,17 @@ export const ChampionshipDetail = () => {
             fetchSponsors();
           }}
           championshipId={championshipId}
+        />
+      )}
+
+      {showCreateMatch && championshipId && (
+        <CreateMatchModal
+          championshipId={championshipId}
+          onClose={() => setShowCreateMatch(false)}
+          onSuccess={() => {
+            setShowCreateMatch(false);
+            fetchChampionshipData();
+          }}
         />
       )}
     </Layout>

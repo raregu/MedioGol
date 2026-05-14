@@ -47,6 +47,9 @@ export const MatchDetailsModal = ({
   const [awayPlayers, setAwayPlayers] = useState<Player[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [cards, setCards] = useState<Card[]>([]);
+  const [homeScore, setHomeScore] = useState<number>(0);
+  const [awayScore, setAwayScore] = useState<number>(0);
+  const [useDirectScore, setUseDirectScore] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [matchChampionshipId, setMatchChampionshipId] = useState<string | null>(championshipId || null);
@@ -69,7 +72,7 @@ export const MatchDetailsModal = ({
         }
       }
 
-      const [homePlayersRes, awayPlayersRes, homeTeamRes, awayTeamRes, matchEventsRes] = await Promise.all([
+      const [homePlayersRes, awayPlayersRes, homeTeamRes, awayTeamRes, matchEventsRes, matchDataRes] = await Promise.all([
         supabase
           .from('team_players')
           .select('player_profiles(id, full_name)')
@@ -92,7 +95,23 @@ export const MatchDetailsModal = ({
           .from('match_events')
           .select('*')
           .eq('match_id', matchId),
+        supabase
+          .from('matches')
+          .select('home_score, away_score, status')
+          .eq('id', matchId)
+          .single(),
       ]);
+
+      // Cargar score existente si el partido ya fue guardado
+      if (matchDataRes.data) {
+        const hs = matchDataRes.data.home_score ?? 0;
+        const as_ = matchDataRes.data.away_score ?? 0;
+        setHomeScore(hs);
+        setAwayScore(as_);
+        if (matchDataRes.data.status === 'finished') {
+          setUseDirectScore(true);
+        }
+      }
 
       if (homePlayersRes.data) {
         const players = homePlayersRes.data
@@ -280,15 +299,19 @@ export const MatchDetailsModal = ({
         if (eventsError) throw eventsError;
       }
 
-      // Contar goles por team_id explícito (evita problema si el mismo jugador está en ambos equipos)
-      const homeGoals = goals.filter((g) => g.player_id && g.team_id === homeTeamId).length;
-      const awayGoals = goals.filter((g) => g.player_id && g.team_id === awayTeamId).length;
+      // Usar score directo o calcular desde goles registrados
+      const finalHomeScore = useDirectScore
+        ? homeScore
+        : goals.filter((g) => g.player_id && g.team_id === homeTeamId).length;
+      const finalAwayScore = useDirectScore
+        ? awayScore
+        : goals.filter((g) => g.player_id && g.team_id === awayTeamId).length;
 
       const { error: matchError } = await supabase
         .from('matches')
         .update({
-          home_score: homeGoals,
-          away_score: awayGoals,
+          home_score: finalHomeScore,
+          away_score: finalAwayScore,
           status: 'finished',
         })
         .eq('id', matchId);
@@ -334,9 +357,53 @@ export const MatchDetailsModal = ({
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+
+          {/* Marcador directo */}
+          <div className="bg-gray-50 rounded-xl p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-semibold text-gray-900">Marcador</h3>
+              <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={useDirectScore}
+                  onChange={(e) => setUseDirectScore(e.target.checked)}
+                  className="rounded"
+                />
+                Ingresar marcador directamente
+              </label>
+            </div>
+            {useDirectScore ? (
+              <div className="flex items-center justify-center gap-6">
+                <div className="text-center">
+                  <p className="text-sm font-medium text-gray-600 mb-1">{homeTeamName}</p>
+                  <input
+                    type="number"
+                    min="0"
+                    value={homeScore}
+                    onChange={(e) => setHomeScore(parseInt(e.target.value) || 0)}
+                    className="w-20 text-center text-3xl font-bold border-2 border-emerald-400 rounded-xl px-2 py-2 focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  />
+                </div>
+                <span className="text-3xl font-bold text-gray-400 mt-5">-</span>
+                <div className="text-center">
+                  <p className="text-sm font-medium text-gray-600 mb-1">{awayTeamName}</p>
+                  <input
+                    type="number"
+                    min="0"
+                    value={awayScore}
+                    onChange={(e) => setAwayScore(parseInt(e.target.value) || 0)}
+                    className="w-20 text-center text-3xl font-bold border-2 border-emerald-400 rounded-xl px-2 py-2 focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500 text-center">El marcador se calcula automáticamente desde los goles registrados abajo.</p>
+            )}
+          </div>
+
           <div>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Goles</h3>
+              <h3 className="text-lg font-semibold text-gray-900">Goles (opcional)</h3>
               <button
                 type="button"
                 onClick={addGoal}
