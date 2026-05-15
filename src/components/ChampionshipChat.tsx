@@ -430,10 +430,11 @@ export const ChampionshipChat = ({ championshipId }: Props) => {
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Cargar datos cuando abre el chat
+  // Cargar datos al abrir: primera vez con spinner, reaperturas silenciosas
   useEffect(() => {
-    if (open && !chatData) {
-      loadData();
+    if (open) {
+      const isRefresh = chatData !== null;
+      loadData(isRefresh);
     }
   }, [open]);
 
@@ -449,8 +450,9 @@ export const ChampionshipChat = ({ championshipId }: Props) => {
     }
   }, [open]);
 
-  const loadData = async () => {
-    setDataLoading(true);
+  const loadData = async (isRefresh = false) => {
+    // Solo mostrar spinner si es la primera carga (no en refresh silencioso)
+    if (!isRefresh) setDataLoading(true);
     try {
       const [champRes, matchesRes] = await Promise.all([
         supabase
@@ -534,14 +536,16 @@ export const ChampionshipChat = ({ championshipId }: Props) => {
       };
       setChatData(data);
 
-      // Mensaje de bienvenida
-      const name = data.championship?.name || 'este campeonato';
-      setMessages([{
-        id: '0',
-        role: 'assistant',
-        text: `¡Hola! 👋 Soy el asistente del **${name}**.\n\nPuedo responderte sobre resultados, goleadores, tabla de posiciones, próximos partidos y más. ¿Qué querés saber?`,
-        timestamp: new Date(),
-      }]);
+      // Mensaje de bienvenida solo en la primera carga
+      if (!isRefresh) {
+        const name = data.championship?.name || 'este campeonato';
+        setMessages([{
+          id: '0',
+          role: 'assistant',
+          text: `¡Hola! 👋 Soy el asistente del **${name}**.\n\nPuedo responderte sobre resultados, goleadores, tabla de posiciones, próximos partidos y más. ¿Qué querés saber?`,
+          timestamp: new Date(),
+        }]);
+      }
     } catch (e) {
       console.error('Error loading chat data:', e);
     } finally {
