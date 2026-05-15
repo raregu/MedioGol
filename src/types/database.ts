@@ -118,6 +118,7 @@ export interface Championship {
   rules_pdf_url?: string;
   location?: string;
   contact_phone?: string;
+  facebook_page_url?: string;
   champion_team_id?: string;
   runner_up_team_id?: string;
   third_place_team_id?: string;

@@ -21,6 +21,7 @@ export const CreateChampionshipModal = ({ onClose, onSuccess }: CreateChampionsh
     end_date: '',
     location: '',
     contact_phone: '',
+    facebook_page_url: '',
   });
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
@@ -48,6 +49,7 @@ export const CreateChampionshipModal = ({ onClose, onSuccess }: CreateChampionsh
         end_date: formData.end_date || null,
         location: formData.location || null,
         contact_phone: formData.contact_phone || null,
+        facebook_page_url: formData.facebook_page_url || null,
         admin_id: profile?.id,
       };
 
@@ -252,6 +254,22 @@ export const CreateChampionshipModal = ({ onClose, onSuccess }: CreateChampionsh
                 placeholder="Ej: +56912345678"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
               />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Página de Facebook (para galería de fotos)
+              </label>
+              <input
+                type="url"
+                value={formData.facebook_page_url}
+                onChange={(e) => setFormData({ ...formData, facebook_page_url: e.target.value })}
+                placeholder="Ej: https://www.facebook.com/MiLiga2024"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Si ingresas una URL de Facebook, aparecerá una pestaña "Galería" con las publicaciones de la página.
+              </p>
             </div>
           </div>
 

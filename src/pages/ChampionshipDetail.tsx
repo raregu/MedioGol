@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Layout } from '../components/Layout';
 import { supabase } from '../lib/supabase';
 import { Championship, Match, Team, TeamStanding, PlayoffConfig, PlayoffMatch, Advertisement, Sponsor } from '../types/database';
-import { Trophy, Calendar, MapPin, Users, Target, AlertCircle, Phone, FileText, CreditCard as Edit, Shield, Award, AlertTriangle, Eye, Trash2, Zap, Plus, BarChart2 } from 'lucide-react';
+import { Trophy, Calendar, MapPin, Users, Target, AlertCircle, Phone, FileText, CreditCard as Edit, Shield, Award, AlertTriangle, Eye, Trash2, Zap, Plus, BarChart2, Facebook } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { MatchDetailsModal } from '../components/admin/MatchDetailsModal';
 import { CreateMatchModal } from '../components/admin/CreateMatchModal';
@@ -16,6 +16,7 @@ import { createPlayoffMatches } from '../utils/playoffBracketGenerator';
 import { AdsAndSponsorsCarousel } from '../components/AdsAndSponsorsCarousel';
 import { SponsorsManagementModal } from '../components/admin/SponsorsManagementModal';
 import { ChampionshipChat } from '../components/ChampionshipChat';
+import { FacebookPageEmbed } from '../components/FacebookPageEmbed';
 
 interface TopScorer {
   player_id: string;
@@ -53,7 +54,7 @@ export const ChampionshipDetail = () => {
   const [topScorers, setTopScorers] = useState<TopScorer[]>([]);
   const [sanctions, setSanctions] = useState<Sanction[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'standings' | 'matches' | 'teams' | 'scorers' | 'sanctions' | 'playoffs'>('standings');
+  const [activeTab, setActiveTab] = useState<'standings' | 'matches' | 'teams' | 'scorers' | 'sanctions' | 'playoffs' | 'gallery'>('standings');
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [showMatchDetailsModal, setShowMatchDetailsModal] = useState(false);
@@ -595,6 +596,9 @@ export const ChampionshipDetail = () => {
                 { key: 'sanctions', label: 'Sanciones',  icon: <AlertTriangle className="h-5 w-5" /> },
                 ...((championship?.phase === 'playoffs' || championship?.phase === 'finished')
                   ? [{ key: 'playoffs', label: 'Playoffs', icon: <Zap className="h-5 w-5" /> }]
+                  : []),
+                ...(championship?.facebook_page_url
+                  ? [{ key: 'gallery', label: 'Galería', icon: <Facebook className="h-5 w-5" /> }]
                   : []),
               ].map(({ key, label, icon }) => (
                 <button
@@ -1232,6 +1236,12 @@ export const ChampionshipDetail = () => {
                     } : undefined}
                   />
                 )}
+              </div>
+            )}
+
+            {activeTab === 'gallery' && championship?.facebook_page_url && (
+              <div className="space-y-4">
+                <FacebookPageEmbed pageUrl={championship.facebook_page_url} />
               </div>
             )}
           </div>
