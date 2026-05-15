@@ -15,6 +15,7 @@ import PlayoffMatchModal from '../components/admin/PlayoffMatchModal';
 import { createPlayoffMatches } from '../utils/playoffBracketGenerator';
 import { AdsAndSponsorsCarousel } from '../components/AdsAndSponsorsCarousel';
 import { SponsorsManagementModal } from '../components/admin/SponsorsManagementModal';
+import { ChampionshipChat } from '../components/ChampionshipChat';
 
 interface TopScorer {
   player_id: string;
@@ -1388,6 +1389,9 @@ export const ChampionshipDetail = () => {
           }}
         />
       )}
+
+      {/* Chat flotante del campeonato */}
+      {championshipId && <ChampionshipChat championshipId={championshipId} />}
     </Layout>
   );
 };
