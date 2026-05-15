@@ -16,7 +16,6 @@ interface MatchData {
   status: string;
   match_date: string | null;
   round: number | null;
-  series: string | null;
   home_team: { name: string } | null;
   away_team: { name: string } | null;
   sports_complex: { name: string; address: string | null } | null;
@@ -463,7 +462,7 @@ export const ChampionshipChat = ({ championshipId }: Props) => {
         supabase
           .from('matches')
           .select(
-            'id, home_score, away_score, status, match_date, round, series, home_team:teams!matches_home_team_id_fkey(name), away_team:teams!matches_away_team_id_fkey(name), sports_complex:sports_complexes(name, address)'
+            'id, home_score, away_score, status, match_date, round, home_team:teams!matches_home_team_id_fkey(name), away_team:teams!matches_away_team_id_fkey(name), sports_complex:sports_complexes(name, address)'
           )
           .eq('championship_id', championshipId)
           .order('match_date', { ascending: false }),
