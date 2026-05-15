@@ -239,7 +239,14 @@ export const Home = () => {
                   key={championship.id}
                   className="group bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all p-6 border-2 border-gray-100 hover:border-emerald-300 transform hover:-translate-y-1"
                 >
-                  <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-start gap-4 mb-4">
+                    {championship.image_url && (
+                      <img
+                        src={championship.image_url}
+                        alt={championship.name}
+                        className="w-16 h-16 rounded-xl object-cover flex-shrink-0 border border-gray-200 shadow"
+                      />
+                    )}
                     <div className="flex-1">
                       <a href={`/championship/${championship.id}`}>
                         <h3 className="text-2xl font-black text-gray-900 mb-3 group-hover:text-emerald-600 transition-colors">

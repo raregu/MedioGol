@@ -484,7 +484,15 @@ export const ChampionshipDetail = () => {
         <div className="bg-gradient-to-r from-emerald-600 to-teal-600 rounded-xl shadow-lg overflow-hidden">
           <div className="p-4 text-white">
             <div className="flex items-center gap-3 mb-3">
-              <Trophy className="h-8 w-8 flex-shrink-0" />
+              {championship.image_url ? (
+                <img
+                  src={championship.image_url}
+                  alt={championship.name}
+                  className="h-16 w-16 rounded-xl object-cover flex-shrink-0 border-2 border-white/40 shadow"
+                />
+              ) : (
+                <Trophy className="h-8 w-8 flex-shrink-0" />
+              )}
               <div className="flex-1">
                 <h1 className="text-2xl font-bold">{championship.name}</h1>
                 <span className="inline-block px-2 py-0.5 bg-white/20 rounded-full text-xs font-medium capitalize mt-1">

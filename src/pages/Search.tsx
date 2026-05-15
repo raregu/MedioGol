@@ -213,7 +213,14 @@ export const Search = () => {
                   href={`/championship/${championship.id}`}
                   className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all p-6 border border-gray-100 hover:border-emerald-200"
                 >
-                  <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-start gap-3 mb-4">
+                    {championship.image_url && (
+                      <img
+                        src={championship.image_url}
+                        alt={championship.name}
+                        className="w-14 h-14 rounded-xl object-cover flex-shrink-0 border border-gray-200 shadow-sm"
+                      />
+                    )}
                     <div className="flex-1">
                       <h3 className="text-xl font-bold text-gray-900 mb-2">{championship.name}</h3>
                       <div className="flex gap-2">
