@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Layout } from '../components/Layout';
 import { supabase } from '../lib/supabase';
 import { Championship, Match, Team, TeamStanding, PlayoffConfig, PlayoffMatch, Advertisement, Sponsor } from '../types/database';
-import { Trophy, Calendar, MapPin, Users, Target, AlertCircle, Phone, FileText, CreditCard as Edit, Shield, Award, AlertTriangle, Eye, Trash2, Zap, Plus } from 'lucide-react';
+import { Trophy, Calendar, MapPin, Users, Target, AlertCircle, Phone, FileText, CreditCard as Edit, Shield, Award, AlertTriangle, Eye, Trash2, Zap, Plus, BarChart2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { MatchDetailsModal } from '../components/admin/MatchDetailsModal';
 import { CreateMatchModal } from '../components/admin/CreateMatchModal';
@@ -584,70 +584,32 @@ export const ChampionshipDetail = () => {
         )}
 
         <div className="bg-white rounded-xl shadow-md">
-          <div className="border-b overflow-x-auto">
-            <div className="flex min-w-max">
-              <button
-                onClick={() => setActiveTab('standings')}
-                className={`px-4 sm:px-6 py-3 sm:py-4 font-medium transition-colors whitespace-nowrap text-sm sm:text-base ${
-                  activeTab === 'standings'
-                    ? 'text-emerald-600 border-b-2 border-emerald-600'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                Posiciones
-              </button>
-              <button
-                onClick={() => setActiveTab('matches')}
-                className={`px-4 sm:px-6 py-3 sm:py-4 font-medium transition-colors whitespace-nowrap text-sm sm:text-base ${
-                  activeTab === 'matches'
-                    ? 'text-emerald-600 border-b-2 border-emerald-600'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                Partidos
-              </button>
-              <button
-                onClick={() => setActiveTab('teams')}
-                className={`px-4 sm:px-6 py-3 sm:py-4 font-medium transition-colors whitespace-nowrap text-sm sm:text-base ${
-                  activeTab === 'teams'
-                    ? 'text-emerald-600 border-b-2 border-emerald-600'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                Equipos
-              </button>
-              <button
-                onClick={() => setActiveTab('scorers')}
-                className={`px-4 sm:px-6 py-3 sm:py-4 font-medium transition-colors whitespace-nowrap text-sm sm:text-base ${
-                  activeTab === 'scorers'
-                    ? 'text-emerald-600 border-b-2 border-emerald-600'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                Goleadores
-              </button>
-              <button
-                onClick={() => setActiveTab('sanctions')}
-                className={`px-4 sm:px-6 py-3 sm:py-4 font-medium transition-colors whitespace-nowrap text-sm sm:text-base ${
-                  activeTab === 'sanctions'
-                    ? 'text-emerald-600 border-b-2 border-emerald-600'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                Sanciones
-              </button>
-              {(championship?.phase === 'playoffs' || championship?.phase === 'finished') && (
+          {/* Navegación por secciones — grilla de iconos, amigable en celular */}
+          <div className="p-3 border-b border-gray-100">
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+              {[
+                { key: 'standings', label: 'Posiciones', icon: <BarChart2 className="h-5 w-5" /> },
+                { key: 'matches',   label: 'Partidos',   icon: <Calendar className="h-5 w-5" /> },
+                { key: 'teams',     label: 'Equipos',    icon: <Users className="h-5 w-5" /> },
+                { key: 'scorers',   label: 'Goleadores', icon: <Target className="h-5 w-5" /> },
+                { key: 'sanctions', label: 'Sanciones',  icon: <AlertTriangle className="h-5 w-5" /> },
+                ...((championship?.phase === 'playoffs' || championship?.phase === 'finished')
+                  ? [{ key: 'playoffs', label: 'Playoffs', icon: <Zap className="h-5 w-5" /> }]
+                  : []),
+              ].map(({ key, label, icon }) => (
                 <button
-                  onClick={() => setActiveTab('playoffs')}
-                  className={`px-4 sm:px-6 py-3 sm:py-4 font-medium transition-colors whitespace-nowrap text-sm sm:text-base ${
-                    activeTab === 'playoffs'
-                      ? 'text-emerald-600 border-b-2 border-emerald-600'
-                      : 'text-gray-600 hover:text-gray-900'
+                  key={key}
+                  onClick={() => setActiveTab(key as typeof activeTab)}
+                  className={`flex flex-col items-center gap-1 py-2.5 px-1 rounded-xl font-medium transition-all text-xs ${
+                    activeTab === key
+                      ? 'bg-emerald-600 text-white shadow-sm'
+                      : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800'
                   }`}
                 >
-                  Playoffs
+                  {icon}
+                  <span>{label}</span>
                 </button>
-              )}
+              ))}
             </div>
           </div>
 
