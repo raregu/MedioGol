@@ -343,6 +343,16 @@ export interface PlayoffConfig {
   updated_at: string;
 }
 
+export interface ChampionshipPhoto {
+  id: string;
+  championship_id: string;
+  url: string;
+  caption?: string;
+  uploaded_by?: string;
+  created_at: string;
+  uploader?: Profile;
+}
+
 export interface PlayoffMatch {
   id: string;
   championship_id: string;
