@@ -154,23 +154,32 @@ function buildAnswer(question: string, data: ChatData): string {
   if (
     q.includes('proximo') ||
     q.includes('siguiente') ||
-    q.includes('cuando') && q.includes('jueg') ||
+    (q.includes('cuando') && q.includes('jueg')) ||
     q.includes('pendiente') ||
     q.includes('programado') ||
-    q.includes('calendario')
+    q.includes('calendario') ||
+    (q.includes('partido') && !q.includes('resultado') && !q.includes('gano') && !q.includes('gano'))
   ) {
     const teamMatch = findTeamInQuestion(q, matches);
-    const upcoming = matches
-      .filter((m) => m.status !== 'finished')
-      .filter((m) => !teamMatch || matchInvolvesTeam(m, teamMatch));
+    const allUpcoming = matches.filter((m) => m.status !== 'finished');
+    const upcoming = teamMatch
+      ? allUpcoming.filter((m) => matchInvolvesTeam(m, teamMatch))
+      : allUpcoming;
 
-    if (upcoming.length === 0) {
-      return teamMatch
-        ? `No hay partidos pendientes de **${teamMatch}**.`
-        : 'No hay partidos programados próximamente.';
+    // Si filtramos por equipo pero no encontramos partidos, mostrar todos los pendientes como fallback
+    if (upcoming.length === 0 && teamMatch) {
+      if (allUpcoming.length > 0) {
+        const rows = allUpcoming.slice(0, 5).map((m) => formatMatch(m)).join('\n');
+        return `No encontré partidos específicos de "${teamMatch}" pendientes.\n\nEstos son los próximos partidos del campeonato:\n\n${rows}`;
+      }
+      return `No hay partidos pendientes de **${teamMatch}**.`;
     }
 
-    const rows = upcoming.slice(0, 5).map((m) => formatMatch(m)).join('\n');
+    if (upcoming.length === 0) {
+      return 'No hay partidos programados próximamente.';
+    }
+
+    const rows = upcoming.slice(0, 8).map((m) => formatMatch(m)).join('\n');
     const header = teamMatch
       ? `📅 **Próximos partidos de ${teamMatch}**`
       : '📅 **Próximos Partidos**';
@@ -286,10 +295,22 @@ function findTeamInQuestion(q: string, matches: MatchData[]): string | null {
       )
     ),
   ];
+
+  // Primero buscar match exacto de algún fragmento del nombre
   for (const team of allTeams) {
-    const teamWords = norm(team).split(' ').filter((w) => w.length > 2);
+    const teamNorm = norm(team);
+    // Verificar si alguna parte del nombre del equipo aparece en la pregunta
+    if (q.includes(teamNorm)) return team;
+    const teamWords = teamNorm.split(' ').filter((w) => w.length > 2);
     if (teamWords.some((w) => q.includes(w))) return team;
   }
+
+  // Segunda pasada: buscar con palabras de 2+ caracteres (más permisivo)
+  for (const team of allTeams) {
+    const teamWords = norm(team).split(' ').filter((w) => w.length >= 2);
+    if (teamWords.some((w) => q.includes(w) && w !== 'de' && w !== 'la' && w !== 'el' && w !== 'lo' && w !== 'cd' && w !== 'los')) return team;
+  }
+
   return null;
 }
 
@@ -311,7 +332,13 @@ function findTeamPairInQuestion(
 }
 
 function matchInvolvesTeam(m: MatchData, teamName: string): boolean {
-  return includes(m.home_team?.name || '', teamName) || includes(m.away_team?.name || '', teamName);
+  // Usar coincidencia por palabras en lugar de substring completo
+  // Esto maneja casos donde el join retorna null o el nombre difiere levemente
+  const teamWords = norm(teamName).split(' ').filter((w) => w.length > 2);
+  const hn = norm(m.home_team?.name || '');
+  const an = norm(m.away_team?.name || '');
+  if (hn === '' && an === '') return true; // si no tenemos info del equipo, incluir el partido
+  return teamWords.some((w) => hn.includes(w) || an.includes(w));
 }
 
 function formatMatch(m: MatchData): string {
