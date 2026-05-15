@@ -1,52 +1,26 @@
-import { useEffect, useRef } from 'react';
 import { Facebook } from 'lucide-react';
 
 interface FacebookPageEmbedProps {
   pageUrl: string;
 }
 
-declare global {
-  interface Window {
-    FB?: {
-      init: (params: object) => void;
-      XFBML?: { parse: () => void };
-    };
-    fbAsyncInit?: () => void;
-  }
-}
-
 export function FacebookPageEmbed({ pageUrl }: FacebookPageEmbedProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const loadFBSDK = () => {
-      if (window.FB) {
-        window.FB.XFBML?.parse();
-        return;
-      }
-
-      window.fbAsyncInit = function () {
-        window.FB?.init({
-          xfbml: true,
-          version: 'v19.0',
-        });
-      };
-
-      if (!document.getElementById('facebook-jssdk')) {
-        const script = document.createElement('script');
-        script.id = 'facebook-jssdk';
-        script.src = 'https://connect.facebook.net/es_LA/sdk.js';
-        script.async = true;
-        script.defer = true;
-        document.body.appendChild(script);
-      }
-    };
-
-    loadFBSDK();
-  }, [pageUrl]);
-
-  // Normalize URL: strip trailing slash and ensure it's a full URL
+  // Normalize URL
   const normalizedUrl = pageUrl.replace(/\/$/, '');
+  const encodedUrl = encodeURIComponent(normalizedUrl);
+
+  // Use Facebook's iframe plugin directly — no SDK, no App ID needed
+  const iframeSrc =
+    `https://www.facebook.com/plugins/page.php` +
+    `?href=${encodedUrl}` +
+    `&tabs=timeline%2Cphotos` +
+    `&width=500` +
+    `&height=600` +
+    `&small_header=true` +
+    `&adapt_container_width=true` +
+    `&hide_cover=false` +
+    `&show_facepile=false` +
+    `&locale=es_LA`;
 
   return (
     <div className="space-y-4">
@@ -55,24 +29,19 @@ export function FacebookPageEmbed({ pageUrl }: FacebookPageEmbedProps) {
         <span>Galería de Facebook</span>
       </div>
 
-      <div ref={containerRef} className="flex justify-center">
-        <div
-          className="fb-page"
-          data-href={normalizedUrl}
-          data-tabs="timeline,photos"
-          data-width="500"
-          data-height="600"
-          data-small-header="true"
-          data-adapt-container-width="true"
-          data-hide-cover="false"
-          data-show-facepile="false"
+      <div className="w-full overflow-hidden rounded-lg border border-gray-200 bg-gray-50 flex justify-center">
+        <iframe
+          src={iframeSrc}
+          width="500"
+          height="600"
+          style={{ border: 'none', overflow: 'hidden', maxWidth: '100%' }}
+          scrolling="no"
+          frameBorder="0"
+          allowFullScreen
+          allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+          title="Galería de Facebook del campeonato"
         />
       </div>
-
-      <div
-        id="fb-root"
-        style={{ display: 'none' }}
-      />
 
       <p className="text-xs text-gray-400 text-center">
         Fotos publicadas en la página de Facebook del campeonato.{' '}
