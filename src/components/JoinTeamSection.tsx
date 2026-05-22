@@ -30,6 +30,7 @@ export function JoinTeamSection({ onCreateTeam, onJoinedTeam }: JoinTeamSectionP
   const [results, setResults] = useState<BaseTeamResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [sendingRequest, setSendingRequest] = useState<string | null>(null);
+  const [cancellingRequest, setCancellingRequest] = useState<string | null>(null);
   const [successTeam, setSuccessTeam] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
 
@@ -176,6 +177,33 @@ export function JoinTeamSection({ onCreateTeam, onJoinedTeam }: JoinTeamSectionP
       setError(err.message || 'Error al enviar la solicitud');
     } finally {
       setSendingRequest(null);
+    }
+  };
+
+  const cancelJoinRequest = async (team: BaseTeamResult) => {
+    if (!profile) return;
+    setCancellingRequest(team.id);
+    setError(null);
+    try {
+      const { error: delError } = await supabase
+        .from('base_team_join_requests')
+        .delete()
+        .eq('base_team_id', team.id)
+        .eq('requester_id', profile.id)
+        .eq('status', 'pending');
+
+      if (delError) throw delError;
+
+      // Actualizar estado local sin refetch
+      setResults((prev) =>
+        prev.map((r) =>
+          r.id === team.id ? { ...r, my_request_status: 'none' } : r
+        )
+      );
+    } catch (err: any) {
+      setError(err.message || 'Error al cancelar la solicitud');
+    } finally {
+      setCancellingRequest(null);
     }
   };
 
@@ -393,10 +421,19 @@ export function JoinTeamSection({ onCreateTeam, onJoinedTeam }: JoinTeamSectionP
                         Ya eres miembro
                       </span>
                     ) : team.my_request_status === 'pending' ? (
-                      <span className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-100 text-amber-700 rounded-lg text-xs font-semibold">
-                        <Clock className="h-3.5 w-3.5" />
-                        Solicitud enviada
-                      </span>
+                      <div className="flex flex-col items-end gap-1.5">
+                        <span className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-100 text-amber-700 rounded-lg text-xs font-semibold">
+                          <Clock className="h-3.5 w-3.5" />
+                          Solicitud enviada
+                        </span>
+                        <button
+                          onClick={() => cancelJoinRequest(team)}
+                          disabled={cancellingRequest === team.id}
+                          className="text-xs text-red-500 hover:text-red-700 underline disabled:opacity-50"
+                        >
+                          {cancellingRequest === team.id ? 'Cancelando...' : 'Cancelar solicitud'}
+                        </button>
+                      </div>
                     ) : team.my_request_status === 'approved' ? (
                       <span className="flex items-center gap-1.5 px-3 py-1.5 bg-green-100 text-green-700 rounded-lg text-xs font-semibold">
                         <UserCheck className="h-3.5 w-3.5" />
