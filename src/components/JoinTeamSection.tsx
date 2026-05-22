@@ -57,7 +57,6 @@ export function JoinTeamSection({ onCreateTeam, onJoinedTeam }: JoinTeamSectionP
         .select('id, name, logo_url, description, founded_date, owner_id')
         .ilike('name', `%${q}%`)
         .neq('owner_id', profile.id)
-        .eq('status', 'active')
         .limit(10);
 
       if (teamsError) throw teamsError;
@@ -137,6 +136,7 @@ export function JoinTeamSection({ onCreateTeam, onJoinedTeam }: JoinTeamSectionP
     setError(null);
 
     try {
+      // 1. Crear la solicitud de ingreso
       const { error: insertError } = await supabase
         .from('base_team_join_requests')
         .insert({
@@ -150,6 +150,24 @@ export function JoinTeamSection({ onCreateTeam, onJoinedTeam }: JoinTeamSectionP
           throw new Error('Ya enviaste una solicitud a este equipo');
         }
         throw insertError;
+      }
+
+      // 2. Obtener el owner_id del equipo para enviarle un mensaje de notificación
+      const { data: teamData } = await supabase
+        .from('base_teams')
+        .select('owner_id')
+        .eq('id', team.id)
+        .maybeSingle();
+
+      if (teamData?.owner_id) {
+        // Insertar mensaje de notificación al dueño del equipo
+        await supabase.from('messages').insert({
+          from_user_id: profile.id,
+          to_user_id: teamData.owner_id,
+          subject: `Solicitud de ingreso al equipo ${team.name}`,
+          content: `${profile.full_name} quiere unirse a tu equipo "${team.name}". Puedes aprobar o rechazar la solicitud desde "Mis Equipos" → sección de jugadores de tu equipo.`,
+          is_read: false,
+        });
       }
 
       setSuccessTeam(team.name);

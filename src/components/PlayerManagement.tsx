@@ -68,9 +68,10 @@ export const PlayerManagement = ({ baseTeamId, baseTeamName }: PlayerManagementP
   };
 
   const fetchJoinRequests = async () => {
-    const { data, error } = await supabase
+    // Primero traer las solicitudes
+    const { data: requests, error } = await supabase
       .from('base_team_join_requests')
-      .select('*, requester:profiles!base_team_join_requests_requester_id_fkey(id, full_name, avatar_url, rut)')
+      .select('id, base_team_id, requester_id, message, status, created_at')
       .eq('base_team_id', baseTeamId)
       .eq('status', 'pending')
       .order('created_at', { ascending: false });
@@ -79,7 +80,28 @@ export const PlayerManagement = ({ baseTeamId, baseTeamName }: PlayerManagementP
       console.error('Error fetching join requests:', error);
       return;
     }
-    setJoinRequests(data || []);
+
+    if (!requests || requests.length === 0) {
+      setJoinRequests([]);
+      return;
+    }
+
+    // Traer perfiles por separado (FK es a auth.users, no a profiles directamente)
+    const requesterIds = requests.map((r) => r.requester_id);
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, full_name, avatar_url, rut')
+      .in('id', requesterIds);
+
+    const profileMap: Record<string, any> = {};
+    profiles?.forEach((p) => { profileMap[p.id] = p; });
+
+    const enriched = requests.map((r) => ({
+      ...r,
+      requester: profileMap[r.requester_id] || null,
+    }));
+
+    setJoinRequests(enriched);
   };
 
   const fetchPlayers = async () => {
