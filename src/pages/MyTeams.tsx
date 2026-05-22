@@ -9,7 +9,8 @@ import { AddPlayerModal } from '../components/AddPlayerModal';
 import CreateBaseTeamModal from '../components/CreateBaseTeamModal';
 import EditBaseTeamModal from '../components/EditBaseTeamModal';
 import { PlayerManagement } from '../components/PlayerManagement';
-import { Users, Plus, Send, UserPlus, Trophy, AlertCircle, Bell, Target, Award, CheckCircle, XCircle, Shield, Eye, EyeOff, ChevronDown, ChevronUp, Edit } from 'lucide-react';
+import { JoinTeamSection } from '../components/JoinTeamSection';
+import { Users, Plus, Send, UserPlus, Trophy, AlertCircle, Bell, Target, Award, CheckCircle, XCircle, Shield, Eye, EyeOff, ChevronDown, ChevronUp, Edit, Search } from 'lucide-react';
 
 interface CaptainInvitation {
   id: string;
@@ -46,6 +47,7 @@ export const MyTeams = () => {
   const [showAddPlayerModal, setShowAddPlayerModal] = useState(false);
   const [showCreateBaseTeamModal, setShowCreateBaseTeamModal] = useState(false);
   const [showEditBaseTeamModal, setShowEditBaseTeamModal] = useState(false);
+  const [showJoinSearch, setShowJoinSearch] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [selectedBaseTeam, setSelectedBaseTeam] = useState<BaseTeam | null>(null);
   const [expandedBaseTeams, setExpandedBaseTeams] = useState<Set<string>>(new Set());
@@ -297,15 +299,40 @@ export const MyTeams = () => {
               <h1 className="text-4xl font-bold text-gray-900 mb-2">Mis Equipos</h1>
               <p className="text-gray-600 text-lg">Gestiona tus equipos y jugadores</p>
             </div>
-            <button
-              onClick={() => setShowCreateBaseTeamModal(true)}
-              className="flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium"
-            >
-              <Plus className="h-5 w-5" />
-              Crear Equipo
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowJoinSearch(!showJoinSearch)}
+                className="flex items-center gap-2 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium text-sm"
+              >
+                <Search className="h-4 w-4" />
+                Buscar equipo
+              </button>
+              <button
+                onClick={() => setShowCreateBaseTeamModal(true)}
+                className="flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium"
+              >
+                <Plus className="h-5 w-5" />
+                Crear Equipo
+              </button>
+            </div>
           </div>
 
+          {/* Sección de búsqueda / bienvenida */}
+          {(baseTeams.length === 0 || showJoinSearch) && (
+            <JoinTeamSection
+              onCreateTeam={() => {
+                setShowJoinSearch(false);
+                setShowCreateBaseTeamModal(true);
+              }}
+              onJoinedTeam={() => {
+                setShowJoinSearch(false);
+                fetchMyTeams();
+              }}
+            />
+          )}
+
+          {/* Sección Mis Equipos Base — solo si tiene equipos */}
+          {baseTeams.length > 0 && (
           <div className="bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-xl p-6">
             <div className="flex items-start gap-4 mb-4">
               <Users className="h-6 w-6 text-blue-600 flex-shrink-0 mt-1" />
@@ -321,13 +348,6 @@ export const MyTeams = () => {
               <div className="bg-white rounded-lg p-8 text-center">
                 <Users className="h-12 w-12 text-gray-300 mx-auto mb-3" />
                 <p className="text-gray-600 mb-4">No has creado ningún equipo aún.</p>
-                <button
-                  onClick={() => setShowCreateBaseTeamModal(true)}
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium"
-                >
-                  <Plus className="h-5 w-5" />
-                  Crear Mi Primer Equipo
-                </button>
               </div>
             ) : (
               <div className="space-y-4">
@@ -423,6 +443,7 @@ export const MyTeams = () => {
               </div>
             )}
           </div>
+          )} {/* fin baseTeams.length > 0 */}
 
           {captainInvitations.length > 0 && (
             <div className="bg-gradient-to-r from-amber-50 to-orange-100 border border-amber-300 rounded-xl p-6 shadow-lg">

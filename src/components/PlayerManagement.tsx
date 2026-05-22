@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { RegisterPlayerModal } from './RegisterPlayerModal';
-import { Users, Plus, Trash2, Edit2, Mail, UserX, CheckCircle, XCircle, UserPlus } from 'lucide-react';
+import { Users, Plus, Trash2, Edit2, Mail, UserX, CheckCircle, XCircle, UserPlus, Bell, Clock } from 'lucide-react';
 
 interface BaseTeamPlayer {
   id: string;
@@ -38,6 +38,8 @@ interface PlayerManagementProps {
 export const PlayerManagement = ({ baseTeamId, baseTeamName }: PlayerManagementProps) => {
   const [players, setPlayers] = useState<BaseTeamPlayer[]>([]);
   const [invitations, setInvitations] = useState<BaseTeamInvitation[]>([]);
+  const [joinRequests, setJoinRequests] = useState<any[]>([]);
+  const [respondingRequest, setRespondingRequest] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showAddPlayer, setShowAddPlayer] = useState(false);
   const [showInvitePlayer, setShowInvitePlayer] = useState(false);
@@ -59,10 +61,25 @@ export const PlayerManagement = ({ baseTeamId, baseTeamName }: PlayerManagementP
   const fetchData = async () => {
     try {
       setLoading(true);
-      await Promise.all([fetchPlayers(), fetchInvitations(), fetchAvailablePlayers()]);
+      await Promise.all([fetchPlayers(), fetchInvitations(), fetchAvailablePlayers(), fetchJoinRequests()]);
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchJoinRequests = async () => {
+    const { data, error } = await supabase
+      .from('base_team_join_requests')
+      .select('*, requester:profiles!base_team_join_requests_requester_id_fkey(id, full_name, avatar_url, rut)')
+      .eq('base_team_id', baseTeamId)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching join requests:', error);
+      return;
+    }
+    setJoinRequests(data || []);
   };
 
   const fetchPlayers = async () => {
@@ -200,6 +217,64 @@ export const PlayerManagement = ({ baseTeamId, baseTeamName }: PlayerManagementP
     }
   };
 
+  const handleRespondJoinRequest = async (requestId: string, requesterId: string, approve: boolean) => {
+    setRespondingRequest(requestId);
+    try {
+      // Actualizar estado de la solicitud
+      const { error: updateError } = await supabase
+        .from('base_team_join_requests')
+        .update({
+          status: approve ? 'approved' : 'rejected',
+          responded_at: new Date().toISOString(),
+        })
+        .eq('id', requestId);
+
+      if (updateError) throw updateError;
+
+      if (approve) {
+        // Verificar si existe en player_profiles; si no, crearlo
+        const { data: ppExists } = await supabase
+          .from('player_profiles')
+          .select('id')
+          .eq('id', requesterId)
+          .maybeSingle();
+
+        if (!ppExists) {
+          const { data: prof } = await supabase
+            .from('profiles')
+            .select('full_name')
+            .eq('id', requesterId)
+            .maybeSingle();
+
+          await supabase.from('player_profiles').insert({
+            id: requesterId,
+            full_name: prof?.full_name || 'Jugador',
+          });
+        }
+
+        // Agregar al equipo
+        const { error: insertError } = await supabase
+          .from('base_team_players')
+          .insert({
+            base_team_id: baseTeamId,
+            player_id: requesterId,
+            role: 'player',
+            status: 'active',
+            joined_at: new Date().toISOString(),
+          });
+
+        if (insertError && insertError.code !== '23505') throw insertError;
+      }
+
+      await fetchData();
+    } catch (err: any) {
+      console.error('Error responding to join request:', err);
+      alert(err.message || 'Error al procesar la solicitud');
+    } finally {
+      setRespondingRequest(null);
+    }
+  };
+
   const handleCancelInvitation = async (invitationId: string) => {
     if (!confirm('¿Estás seguro de querer cancelar esta invitación?')) return;
 
@@ -289,7 +364,60 @@ export const PlayerManagement = ({ baseTeamId, baseTeamName }: PlayerManagementP
         </div>
       </div>
 
-      {players.length === 0 && invitations.length === 0 ? (
+      {/* Solicitudes de ingreso pendientes */}
+      {joinRequests.length > 0 && (
+        <div className="bg-orange-50 rounded-lg p-4 border border-orange-200">
+          <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+            <Bell className="h-4 w-4 text-orange-600" />
+            Solicitudes de ingreso ({joinRequests.length})
+          </h4>
+          <div className="space-y-2">
+            {joinRequests.map((req) => (
+              <div key={req.id} className="flex items-center justify-between bg-white rounded-lg p-3 border border-orange-100">
+                <div className="flex items-center gap-3">
+                  {req.requester?.avatar_url ? (
+                    <img src={req.requester.avatar_url} alt="" className="w-10 h-10 rounded-full object-cover" />
+                  ) : (
+                    <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
+                      <Users className="h-5 w-5 text-orange-600" />
+                    </div>
+                  )}
+                  <div>
+                    <p className="font-medium text-gray-900 text-sm">{req.requester?.full_name || 'Jugador'}</p>
+                    {req.requester?.rut && (
+                      <p className="text-xs text-gray-500">RUT: {req.requester.rut}</p>
+                    )}
+                    <p className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
+                      <Clock className="h-3 w-3" />
+                      {new Date(req.created_at).toLocaleDateString('es-CL')}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleRespondJoinRequest(req.id, req.requester_id, true)}
+                    disabled={respondingRequest === req.id}
+                    className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-xs font-semibold disabled:opacity-50 transition-colors"
+                  >
+                    <CheckCircle className="h-3.5 w-3.5" />
+                    Aprobar
+                  </button>
+                  <button
+                    onClick={() => handleRespondJoinRequest(req.id, req.requester_id, false)}
+                    disabled={respondingRequest === req.id}
+                    className="flex items-center gap-1 px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 text-xs font-semibold disabled:opacity-50 transition-colors"
+                  >
+                    <XCircle className="h-3.5 w-3.5" />
+                    Rechazar
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {players.length === 0 && invitations.length === 0 && joinRequests.length === 0 ? (
         <div className="text-center py-8 text-gray-500">
           <Users className="h-12 w-12 text-gray-300 mx-auto mb-2" />
           <p>No hay jugadores en el equipo aún.</p>
