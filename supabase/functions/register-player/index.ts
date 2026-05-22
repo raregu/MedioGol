@@ -77,6 +77,12 @@ Deno.serve(async (req: Request) => {
       .maybeSingle();
 
     if (existingProfile) {
+      // Asegurar que existe en player_profiles también
+      await adminSupabase.from("player_profiles").upsert({
+        id: existingProfile.id,
+        full_name: existingProfile.full_name || full_name,
+      }, { onConflict: "id" });
+
       // Si el jugador ya existe, simplemente agregarlo al equipo si se proporciona base_team_id
       if (base_team_id) {
         // Verificar si ya está en el equipo
@@ -93,6 +99,7 @@ Deno.serve(async (req: Request) => {
             player_id: existingProfile.id,
             role: "player",
             status: "active",
+            joined_at: new Date().toISOString(),
           });
         }
       }
@@ -150,8 +157,10 @@ Deno.serve(async (req: Request) => {
       userId = newUser.user.id;
     }
 
-    // Actualizar perfil con todos los datos (el trigger habrá creado el perfil básico)
-    // Intentamos upsert para cubrir ambos casos
+    // Esperar brevemente para que el trigger de auth cree el perfil
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    // 1. Actualizar tabla profiles (perfil general)
     const { error: profileError } = await adminSupabase
       .from("profiles")
       .upsert({
@@ -159,28 +168,64 @@ Deno.serve(async (req: Request) => {
         full_name,
         rut: cleanedRut,
         phone: phone || null,
-        email: email || null, // solo guardamos email real, no el generado
+        email: email || null,
         role: "usuario",
         updated_at: new Date().toISOString(),
       }, { onConflict: "id" });
 
     if (profileError) {
       console.error("Profile upsert error:", profileError);
-      // No lanzamos error, el perfil puede haberse creado por trigger
+      // Si el trigger aún no creó el perfil, intentar insert directo
+      await adminSupabase.from("profiles").insert({
+        id: userId,
+        full_name,
+        rut: cleanedRut,
+        phone: phone || null,
+        email: email || null,
+        role: "usuario",
+      });
+    }
+
+    // 2. Crear registro en player_profiles (requerido por base_team_players FK)
+    const { error: playerProfileError } = await adminSupabase
+      .from("player_profiles")
+      .upsert({
+        id: userId,
+        full_name,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "id" });
+
+    if (playerProfileError) {
+      console.error("player_profiles upsert error:", playerProfileError);
+      // Intentar insert si upsert falla
+      const { error: ppInsertError } = await adminSupabase.from("player_profiles").insert({
+        id: userId,
+        full_name,
+      });
+      if (ppInsertError) {
+        throw new Error(`No se pudo crear el perfil de jugador: ${ppInsertError.message}`);
+      }
     }
 
     // Agregar al equipo base si se proporciona
+    let teamAddError: string | null = null;
     if (base_team_id) {
       const { error: teamError } = await adminSupabase.from("base_team_players").insert({
         base_team_id,
         player_id: userId,
         role: "player",
         status: "active",
+        joined_at: new Date().toISOString(),
       });
 
-      if (teamError && teamError.code !== "23505") {
-        // 23505 = duplicate, ignorar
-        console.error("Error adding to team:", teamError);
+      if (teamError) {
+        if (teamError.code === "23505") {
+          // Ya estaba en el equipo, no es error
+          console.log("Player already in team, skipping");
+        } else {
+          console.error("Error adding to team:", JSON.stringify(teamError));
+          teamAddError = teamError.message;
+        }
       }
     }
 
@@ -193,7 +238,10 @@ Deno.serve(async (req: Request) => {
         real_email: email || null,
         password,
         rut: cleanedRut,
-        message: "Jugador registrado exitosamente",
+        team_add_error: teamAddError,
+        message: teamAddError
+          ? `Jugador creado pero no se pudo agregar al equipo: ${teamAddError}`
+          : "Jugador registrado exitosamente",
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
