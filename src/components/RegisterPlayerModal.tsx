@@ -121,12 +121,22 @@ export function RegisterPlayerModal({ baseTeamId, baseTeamName, onClose, onSucce
     }
 
     setLoading(true);
+    setFormError(null);
 
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token;
 
+      if (!token) {
+        throw new Error('No hay sesión activa. Por favor recarga la página e inicia sesión.');
+      }
+
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      if (!supabaseUrl) {
+        throw new Error('Error de configuración: URL de Supabase no definida');
+      }
+
+      console.log('[RegisterPlayer] Llamando a edge function...', { supabaseUrl, baseTeamId });
 
       const response = await fetch(`${supabaseUrl}/functions/v1/register-player`, {
         method: 'POST',
@@ -143,17 +153,26 @@ export function RegisterPlayerModal({ baseTeamId, baseTeamName, onClose, onSucce
         }),
       });
 
-      const result = await response.json();
+      console.log('[RegisterPlayer] Respuesta HTTP:', response.status, response.statusText);
+
+      let result: any;
+      try {
+        result = await response.json();
+      } catch {
+        throw new Error(`Error del servidor (${response.status}): respuesta inválida`);
+      }
+
+      console.log('[RegisterPlayer] Resultado:', result);
 
       if (!response.ok || !result.success) {
-        throw new Error(result.error || 'Error al registrar el jugador');
+        throw new Error(result.error || result.message || `Error ${response.status}: ${response.statusText}`);
       }
 
       setSuccessData(result);
       onSuccess();
     } catch (err: any) {
-      console.error('Register error:', err);
-      setFormError(err.message || 'Error al registrar el jugador');
+      console.error('[RegisterPlayer] Error:', err);
+      setFormError(err.message || 'Error al registrar el jugador. Revisa la consola (F12) para más detalles.');
     } finally {
       setLoading(false);
     }
@@ -385,40 +404,42 @@ export function RegisterPlayerModal({ baseTeamId, baseTeamName, onClose, onSucce
             </div>
           )}
 
+        </form>
+
+        {/* Footer — error siempre visible aquí */}
+        <div className="border-t px-6 py-4 space-y-3">
           {formError && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+            <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3">
               <p className="text-sm text-red-700 flex items-center gap-2">
                 <AlertCircle className="h-4 w-4 flex-shrink-0" />
                 {formError}
               </p>
             </div>
           )}
-        </form>
-
-        {/* Footer */}
-        <div className="border-t px-6 py-4 flex gap-3">
-          <button
-            type="button"
-            onClick={handleClose}
-            disabled={loading}
-            className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors disabled:opacity-50"
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={loading || !!rutError}
-            className="flex-1 px-4 py-2.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Registrando...
-              </>
-            ) : (
-              'Registrar Jugador'
-            )}
-          </button>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={handleClose}
+              disabled={loading}
+              className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={loading}
+              className="flex-1 px-4 py-2.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Registrando...
+                </>
+              ) : (
+                'Registrar Jugador'
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </div>

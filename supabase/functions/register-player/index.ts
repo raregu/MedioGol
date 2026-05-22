@@ -114,33 +114,39 @@ Deno.serve(async (req: Request) => {
     const password = generatePassword();
     const isGeneratedEmail = !email;
 
-    // Verificar si ya existe auth user con ese email
-    const { data: listData } = await adminSupabase.auth.admin.listUsers();
-    const existingUser = listData?.users?.find((u) => u.email === playerEmail);
-
+    // Intentar crear el usuario directamente; si ya existe, manejar el error
     let userId: string;
 
-    if (existingUser) {
-      userId = existingUser.id;
-    } else {
-      // Crear usuario en Auth
-      const { data: newUser, error: createError } = await adminSupabase.auth.admin.createUser({
-        email: playerEmail,
-        password,
-        email_confirm: true, // No requiere confirmación de email
-        user_metadata: {
-          full_name,
-        },
-      });
+    const { data: newUser, error: createError } = await adminSupabase.auth.admin.createUser({
+      email: playerEmail,
+      password,
+      email_confirm: true, // No requiere confirmación de email
+      user_metadata: {
+        full_name,
+      },
+    });
 
-      if (createError) {
+    if (createError) {
+      // Si el email ya existe, buscar el usuario existente por email en profiles
+      if (createError.message?.includes("already been registered") || createError.code === "email_exists") {
+        const { data: existingByEmail } = await adminSupabase
+          .from("profiles")
+          .select("id")
+          .eq("email", playerEmail)
+          .maybeSingle();
+
+        if (existingByEmail) {
+          userId = existingByEmail.id;
+        } else {
+          throw new Error(`Error creando usuario: ${createError.message}`);
+        }
+      } else {
         throw new Error(`Error creando usuario: ${createError.message}`);
       }
-
+    } else {
       if (!newUser.user) {
         throw new Error("No se pudo crear el usuario");
       }
-
       userId = newUser.user.id;
     }
 
