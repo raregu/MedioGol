@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { Users, Plus, Trash2, Edit2, Mail, UserX, CheckCircle, XCircle } from 'lucide-react';
+import { RegisterPlayerModal } from './RegisterPlayerModal';
+import { Users, Plus, Trash2, Edit2, Mail, UserX, CheckCircle, XCircle, UserPlus } from 'lucide-react';
 
 interface BaseTeamPlayer {
   id: string;
@@ -40,6 +41,7 @@ export const PlayerManagement = ({ baseTeamId, baseTeamName }: PlayerManagementP
   const [loading, setLoading] = useState(true);
   const [showAddPlayer, setShowAddPlayer] = useState(false);
   const [showInvitePlayer, setShowInvitePlayer] = useState(false);
+  const [showRegisterPlayer, setShowRegisterPlayer] = useState(false);
   const [email, setEmail] = useState('');
   const [selectedPlayerId, setSelectedPlayerId] = useState('');
   const [availablePlayers, setAvailablePlayers] = useState<any[]>([]);
@@ -262,17 +264,24 @@ export const PlayerManagement = ({ baseTeamId, baseTeamName }: PlayerManagementP
           <Users className="h-5 w-5 text-emerald-600" />
           Jugadores del Equipo ({players.length})
         </h3>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setShowRegisterPlayer(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-medium"
+          >
+            <UserPlus className="h-4 w-4" />
+            Registrar Nuevo
+          </button>
           <button
             onClick={() => setShowAddPlayer(true)}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
           >
             <Plus className="h-4 w-4" />
-            Agregar Jugador
+            Agregar Existente
           </button>
           <button
             onClick={() => setShowInvitePlayer(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-medium"
+            className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium"
           >
             <Mail className="h-4 w-4" />
             Invitar por Email
@@ -545,6 +554,17 @@ export const PlayerManagement = ({ baseTeamId, baseTeamName }: PlayerManagementP
             </form>
           </div>
         </div>
+      )}
+
+      {showRegisterPlayer && (
+        <RegisterPlayerModal
+          baseTeamId={baseTeamId}
+          baseTeamName={baseTeamName}
+          onClose={() => setShowRegisterPlayer(false)}
+          onSuccess={() => {
+            fetchData();
+          }}
+        />
       )}
     </div>
   );
