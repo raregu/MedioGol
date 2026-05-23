@@ -10,7 +10,7 @@ import CreateBaseTeamModal from '../components/CreateBaseTeamModal';
 import EditBaseTeamModal from '../components/EditBaseTeamModal';
 import { PlayerManagement } from '../components/PlayerManagement';
 import { JoinTeamSection } from '../components/JoinTeamSection';
-import { Users, Plus, Send, UserPlus, Trophy, AlertCircle, Bell, Target, Award, CheckCircle, XCircle, Shield, Eye, EyeOff, ChevronDown, ChevronUp, Edit, Search } from 'lucide-react';
+import { Users, Plus, Send, UserPlus, Trophy, AlertCircle, Bell, CheckCircle, XCircle, Shield, Eye, EyeOff, ChevronDown, ChevronUp, Edit, Search } from 'lucide-react';
 
 interface CaptainInvitation {
   id: string;
@@ -38,10 +38,13 @@ export const MyTeams = () => {
   const [teams, setTeams] = useState<Team[]>([]);
   const [baseTeams, setBaseTeams] = useState<BaseTeam[]>([]);
   const [players, setPlayers] = useState<{ [teamId: string]: Player[] }>({});
+  const [memberBaseTeams, setMemberBaseTeams] = useState<any[]>([]); // equipos base donde soy jugador
+  const [memberChampTeams, setMemberChampTeams] = useState<any[]>([]); // equipos campeonato donde soy jugador
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [receivedInvitations, setReceivedInvitations] = useState<Invitation[]>([]);
   const [captainInvitations, setCaptainInvitations] = useState<CaptainInvitation[]>([]);
+  const [expandedCaptainTeams, setExpandedCaptainTeams] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showAddPlayerModal, setShowAddPlayerModal] = useState(false);
@@ -134,6 +137,42 @@ export const MyTeams = () => {
         .order('created_at', { ascending: false });
 
       if (receivedInvitationsData) setReceivedInvitations(receivedInvitationsData);
+
+      // Equipos base donde soy jugador (no dueño)
+      const { data: basePlayerData } = await supabase
+        .from('base_team_players')
+        .select('id, role, joined_at, base_team_id, base_teams(id, name, logo_url, owner_id, owner:profiles!base_teams_owner_id_fkey(full_name))')
+        .eq('player_id', profile?.id)
+        .eq('status', 'active');
+
+      const ownedIds = new Set(baseTeamsData?.map((t) => t.id) || []);
+      const filtered = (basePlayerData || []).filter(
+        (m: any) => !ownedIds.has(m.base_team_id)
+      );
+      setMemberBaseTeams(filtered);
+
+      // Equipos campeonato donde soy jugador (no capitán)
+      const captainIds = new Set(teamsData?.map((t) => t.id) || []);
+      const { data: playerTeamIds } = await supabase
+        .from('team_players')
+        .select('team_id')
+        .eq('player_id', profile?.id)
+        .eq('is_active', true);
+
+      const nonCaptainIds = (playerTeamIds || [])
+        .map((r: any) => r.team_id)
+        .filter((id: string) => !captainIds.has(id));
+
+      if (nonCaptainIds.length > 0) {
+        const { data: memberTeamsData } = await supabase
+          .from('teams')
+          .select('id, name, logo_url, stamina, championship:championships!teams_championship_id_fkey(name, status), captain:profiles!teams_captain_id_fkey(full_name)')
+          .in('id', nonCaptainIds);
+        setMemberChampTeams(memberTeamsData || []);
+      } else {
+        setMemberChampTeams([]);
+      }
+
     } catch (error) {
       console.error('Error fetching my teams:', error);
     } finally {
@@ -551,215 +590,152 @@ export const MyTeams = () => {
             </div>
           )}
 
-          <div className="bg-white rounded-xl shadow-md p-6">
-            <div className="flex items-start gap-4 mb-6">
-              <Trophy className="h-6 w-6 text-emerald-600 flex-shrink-0 mt-1" />
-              <div className="flex-1">
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">Equipos en Campeonatos ({teams.length})</h2>
-                <p className="text-gray-600">
-                  Aquí aparecen los equipos donde eres capitán y que están participando en campeonatos activos.
-                </p>
+          {/* === SOY CAPITÁN EN CAMPEONATOS === */}
+          {teams.length > 0 && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <Trophy className="h-6 w-6 text-emerald-600" />
+                <h2 className="text-2xl font-bold text-gray-900">Soy Capitán ({teams.length})</h2>
               </div>
-            </div>
 
-            {teams.length === 0 ? (
-              <div className="bg-gray-50 rounded-lg p-12 text-center">
-                <Trophy className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-xl font-bold text-gray-900 mb-2">No eres capitán de ningún equipo en campeonatos</h3>
-                <p className="text-gray-600">
-                  Espera a que un administrador te designe como capitán de un equipo en algún campeonato.
-                </p>
-              </div>
-            ) : (
-            <div className="space-y-8">
-              {teams.map((team) => (
-                <div key={team.id} className="bg-white rounded-xl shadow-md overflow-hidden">
-                  <div className={`p-6 text-white ${
-                    team.captain_confirmed
-                      ? 'bg-gradient-to-r from-emerald-600 to-teal-600'
-                      : 'bg-gradient-to-r from-gray-500 to-gray-600'
-                  }`}>
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <h2 className="text-2xl font-bold">{team.name}</h2>
-                          {!team.captain_confirmed && (
-                            <span className="bg-yellow-500 text-yellow-900 text-xs font-semibold px-3 py-1 rounded-full">
-                              Pendiente de Confirmación
-                            </span>
-                          )}
-                          {!team.is_enabled && (
-                            <span className="bg-red-500 text-white text-xs font-semibold px-3 py-1 rounded-full">
-                              Deshabilitado
-                            </span>
-                          )}
-                        </div>
-                        <p className={team.captain_confirmed ? 'text-emerald-50' : 'text-gray-200'}>
-                          {team.championship?.name}
-                        </p>
-                        {!team.captain_confirmed && (
-                          <p className="text-sm text-gray-200 mt-2 bg-black/20 p-2 rounded">
-                            Debes confirmar tu rol como capitán para gestionar este equipo
-                          </p>
+              <div className="space-y-3">
+                {teams.map((team) => (
+                  <div key={team.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    <div className="p-4">
+                      <div className="flex items-center gap-3">
+                        {team.logo_url ? (
+                          <img src={team.logo_url} alt={team.name} className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
+                        ) : (
+                          <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <Trophy className="h-6 w-6 text-white" />
+                          </div>
                         )}
-                      </div>
-                      <div className="text-right">
-                        <div className="bg-white/20 rounded-lg px-4 py-2">
-                          <p className="text-sm text-emerald-50">Stamina</p>
-                          <p className="text-2xl font-bold">{team.stamina}/100</p>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="font-bold text-gray-900">{team.name}</h3>
+                            {team.captain_confirmed ? (
+                              <span className="text-xs px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full font-medium">Capitán</span>
+                            ) : (
+                              <span className="text-xs px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded-full font-medium">Pendiente confirmación</span>
+                            )}
+                            {!team.is_enabled && (
+                              <span className="text-xs px-2 py-0.5 bg-red-100 text-red-700 rounded-full font-medium">Deshabilitado</span>
+                            )}
+                          </div>
+                          <p className="text-sm text-gray-500 truncate">{team.championship?.name}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <div className="flex-1 bg-gray-200 rounded-full h-1.5">
+                              <div className="bg-emerald-500 h-1.5 rounded-full" style={{ width: `${team.stamina}%` }} />
+                            </div>
+                            <span className="text-xs text-gray-500 flex-shrink-0">Stamina {team.stamina}%</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <span className="text-sm text-gray-500">{players[team.id]?.length || 0} jug.</span>
+                          <button
+                            onClick={() => setExpandedCaptainTeams((prev) => {
+                              const s = new Set(prev);
+                              s.has(team.id) ? s.delete(team.id) : s.add(team.id);
+                              return s;
+                            })}
+                            className="p-1.5 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
+                          >
+                            {expandedCaptainTeams.has(team.id) ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                          </button>
                         </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="p-6">
-                    {team.captain_confirmed ? (
-                      <>
-                        <div className="flex items-center justify-between mb-4">
-                          <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                            <Users className="h-5 w-5" />
-                            Jugadores ({players[team.id]?.length || 0})
-                          </h3>
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => handleAddPlayer(team)}
-                              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-                            >
-                              <Plus className="h-4 w-4" />
-                              Agregar Jugador
-                            </button>
-                            <button
-                              onClick={() => handleInvitePlayer(team)}
-                              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-medium"
-                            >
-                              <UserPlus className="h-4 w-4" />
-                              Invitar Usuario
-                            </button>
-                          </div>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
-                        <AlertCircle className="h-8 w-8 text-yellow-600 mx-auto mb-2" />
-                        <p className="text-gray-700 font-medium">
-                          Confirma tu rol como capitán en la sección de invitaciones para poder gestionar este equipo
-                        </p>
-                      </div>
-                    )}
-
-                    {team.captain_confirmed && players[team.id]?.length === 0 && (
-                      <p className="text-gray-600 text-center py-4">No hay jugadores en el equipo aún.</p>
-                    )}
-
-                    {team.captain_confirmed && players[team.id]?.length > 0 && (
-                      <div className="space-y-3">
-                        {players[team.id]?.map((player) => (
-                          <div key={player.id} className="bg-gray-50 rounded-lg p-4">
-                            <div className="flex items-start gap-4">
-                              <div className="w-12 h-12 bg-emerald-600 rounded-full flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
-                                {player.number || '?'}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <p className="font-bold text-gray-900 text-lg">{player.name}</p>
-                                  {!player.is_active && (
-                                    <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded">Inactivo</span>
-                                  )}
-                                </div>
-                                <p className="text-sm text-gray-600 mb-3">{player.position || 'Sin posición'}</p>
-
-                                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                                  <div className="bg-white rounded-lg p-2 text-center">
-                                    <div className="flex items-center justify-center gap-1 mb-1">
-                                      <Target className="h-3 w-3 text-emerald-600" />
-                                      <p className="text-xs text-gray-600">Goles</p>
-                                    </div>
-                                    <p className="text-lg font-bold text-gray-900">{player.goals}</p>
-                                  </div>
-                                  <div className="bg-white rounded-lg p-2 text-center">
-                                    <div className="flex items-center justify-center gap-1 mb-1">
-                                      <Award className="h-3 w-3 text-blue-600" />
-                                      <p className="text-xs text-gray-600">Asist.</p>
-                                    </div>
-                                    <p className="text-lg font-bold text-gray-900">{player.assists}</p>
-                                  </div>
-                                  <div className="bg-white rounded-lg p-2 text-center">
-                                    <p className="text-xs text-gray-600 mb-1">Partidos</p>
-                                    <p className="text-lg font-bold text-gray-900">{player.matches_played}</p>
-                                  </div>
-                                  <div className="bg-yellow-50 rounded-lg p-2 text-center">
-                                    <p className="text-xs text-yellow-700 mb-1">Amar.</p>
-                                    <p className="text-lg font-bold text-yellow-700">{player.yellow_cards}</p>
-                                  </div>
-                                  <div className="bg-red-50 rounded-lg p-2 text-center">
-                                    <p className="text-xs text-red-700 mb-1">Rojas</p>
-                                    <p className="text-lg font-bold text-red-700">{player.red_cards}</p>
-                                  </div>
-                                </div>
+                    {expandedCaptainTeams.has(team.id) && (
+                      <div className="border-t border-gray-200 p-4 bg-gray-50">
+                        {team.captain_confirmed ? (
+                          <>
+                            <div className="flex items-center justify-between mb-3">
+                              <h4 className="font-semibold text-gray-700 text-sm">Jugadores</h4>
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => handleAddPlayer(team)}
+                                  className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs font-medium"
+                                >
+                                  <Plus className="h-3 w-3" />
+                                  Agregar
+                                </button>
+                                <button
+                                  onClick={() => handleInvitePlayer(team)}
+                                  className="flex items-center gap-1 px-3 py-1.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-xs font-medium"
+                                >
+                                  <UserPlus className="h-3 w-3" />
+                                  Invitar
+                                </button>
                               </div>
                             </div>
+                            {players[team.id]?.length === 0 ? (
+                              <p className="text-sm text-gray-500 text-center py-4">No hay jugadores en el equipo aún.</p>
+                            ) : (
+                              <div className="space-y-2">
+                                {players[team.id]?.map((player) => (
+                                  <div key={player.id} className="bg-white rounded-lg px-3 py-2 flex items-center gap-3">
+                                    <div className="w-8 h-8 bg-emerald-600 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                                      {player.number || '?'}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="font-medium text-gray-900 text-sm truncate">{player.name}</p>
+                                      <p className="text-xs text-gray-500">{player.position || 'Sin posición'}</p>
+                                    </div>
+                                    <div className="flex gap-3 text-xs text-gray-600 flex-shrink-0">
+                                      <span title="Goles">⚽ {player.goals || 0}</span>
+                                      <span title="Asistencias">🅰 {player.assists || 0}</span>
+                                      {(player.yellow_cards || 0) > 0 && <span title="Amarillas">🟡 {player.yellow_cards}</span>}
+                                      {(player.red_cards || 0) > 0 && <span title="Rojas">🔴 {player.red_cards}</span>}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <div className="text-center py-4">
+                            <AlertCircle className="h-8 w-8 text-yellow-600 mx-auto mb-2" />
+                            <p className="text-sm text-gray-600">
+                              Confirma tu rol de capitán en la sección de invitaciones para poder gestionar el equipo.
+                            </p>
                           </div>
-                        ))}
+                        )}
                       </div>
                     )}
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
 
+              {/* Desafíos compactos */}
               {challenges.length > 0 && (
-                <div className="bg-white rounded-xl shadow-md p-6">
-                  <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                    <Send className="h-6 w-6 text-emerald-600" />
-                    Desafíos
-                  </h2>
-
-                  <div className="space-y-3">
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+                  <h3 className="font-bold text-gray-900 mb-3 flex items-center gap-2 text-sm">
+                    <Send className="h-4 w-4 text-emerald-600" />
+                    Desafíos ({challenges.length})
+                  </h3>
+                  <div className="space-y-2">
                     {challenges.map((challenge) => {
                       const isChallenged = teams.some((t) => t.id === challenge.challenged_team_id);
-
                       return (
-                        <div key={challenge.id} className="bg-gray-50 rounded-lg p-4">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <p className="font-semibold text-gray-900">
-                                {challenge.challenger_team?.name} vs {challenge.challenged_team?.name}
-                              </p>
-                              {challenge.message && (
-                                <p className="text-sm text-gray-600 mt-1">{challenge.message}</p>
-                              )}
-                              <p className="text-xs text-gray-500 mt-2">
-                                {new Date(challenge.created_at).toLocaleDateString()}
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              {challenge.status === 'pending' && isChallenged && (
-                                <>
-                                  <button
-                                    onClick={() => respondToChallenge(challenge.id, true)}
-                                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
-                                  >
-                                    Aceptar
-                                  </button>
-                                  <button
-                                    onClick={() => respondToChallenge(challenge.id, false)}
-                                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm"
-                                  >
-                                    Rechazar
-                                  </button>
-                                </>
-                              )}
-                              {challenge.status !== 'pending' && (
-                                <span
-                                  className={`px-3 py-1 rounded-full text-sm font-medium ${
-                                    challenge.status === 'accepted'
-                                      ? 'bg-green-100 text-green-700'
-                                      : 'bg-red-100 text-red-700'
-                                  }`}
-                                >
-                                  {challenge.status === 'accepted' ? 'Aceptado' : 'Rechazado'}
-                                </span>
-                              )}
-                            </div>
+                        <div key={challenge.id} className="bg-gray-50 rounded-lg p-3 flex items-center justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-gray-900 text-sm truncate">
+                              {challenge.challenger_team?.name} vs {challenge.challenged_team?.name}
+                            </p>
+                            {challenge.message && <p className="text-xs text-gray-500 mt-0.5 truncate">{challenge.message}</p>}
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            {challenge.status === 'pending' && isChallenged ? (
+                              <>
+                                <button onClick={() => respondToChallenge(challenge.id, true)} className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-medium">Aceptar</button>
+                                <button onClick={() => respondToChallenge(challenge.id, false)} className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-medium">Rechazar</button>
+                              </>
+                            ) : (
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${challenge.status === 'accepted' ? 'bg-green-100 text-green-700' : challenge.status === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                                {challenge.status === 'accepted' ? 'Aceptado' : challenge.status === 'rejected' ? 'Rechazado' : 'Pendiente'}
+                              </span>
+                            )}
                           </div>
                         </div>
                       );
@@ -768,36 +744,23 @@ export const MyTeams = () => {
                 </div>
               )}
 
+              {/* Invitaciones enviadas compactas */}
               {invitations.length > 0 && (
-                <div className="bg-white rounded-xl shadow-md p-6">
-                  <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                    <UserPlus className="h-6 w-6 text-emerald-600" />
-                    Invitaciones Enviadas
-                  </h2>
-
-                  <div className="space-y-3">
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+                  <h3 className="font-bold text-gray-900 mb-3 flex items-center gap-2 text-sm">
+                    <UserPlus className="h-4 w-4 text-emerald-600" />
+                    Invitaciones Enviadas ({invitations.length})
+                  </h3>
+                  <div className="space-y-2">
                     {invitations.map((invitation) => (
-                      <div key={invitation.id} className="bg-gray-50 rounded-lg p-4 flex items-center justify-between">
-                        <div>
-                          <p className="font-semibold text-gray-900">
-                            {invitation.invited_user?.full_name} - {invitation.team?.name}
+                      <div key={invitation.id} className="bg-gray-50 rounded-lg p-3 flex items-center justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-gray-900 text-sm truncate">
+                            {invitation.invited_user?.full_name} — {invitation.team?.name}
                           </p>
-                          {invitation.message && (
-                            <p className="text-sm text-gray-600 mt-1">{invitation.message}</p>
-                          )}
-                          <p className="text-xs text-gray-500 mt-2">
-                            {new Date(invitation.created_at).toLocaleDateString()}
-                          </p>
+                          <p className="text-xs text-gray-500 mt-0.5">{new Date(invitation.created_at).toLocaleDateString()}</p>
                         </div>
-                        <span
-                          className={`px-3 py-1 rounded-full text-sm font-medium ${
-                            invitation.status === 'accepted'
-                              ? 'bg-green-100 text-green-700'
-                              : invitation.status === 'rejected'
-                              ? 'bg-red-100 text-red-700'
-                              : 'bg-yellow-100 text-yellow-700'
-                          }`}
-                        >
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium flex-shrink-0 ${invitation.status === 'accepted' ? 'bg-green-100 text-green-700' : invitation.status === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
                           {invitation.status === 'accepted' ? 'Aceptada' : invitation.status === 'rejected' ? 'Rechazada' : 'Pendiente'}
                         </span>
                       </div>
@@ -806,8 +769,56 @@ export const MyTeams = () => {
                 </div>
               )}
             </div>
-            )}
-          </div>
+          )}
+
+          {/* === SOY JUGADOR === */}
+          {(memberBaseTeams.length > 0 || memberChampTeams.length > 0) && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <Users className="h-6 w-6 text-blue-600" />
+                <h2 className="text-2xl font-bold text-gray-900">
+                  Soy Jugador ({memberBaseTeams.length + memberChampTeams.length})
+                </h2>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {memberBaseTeams.map((m: any) => (
+                  <div key={m.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex items-center gap-3">
+                    {m.base_teams?.logo_url ? (
+                      <img src={m.base_teams.logo_url} alt={m.base_teams?.name} className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
+                    ) : (
+                      <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <Users className="h-6 w-6 text-white" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-gray-900 truncate">{m.base_teams?.name}</p>
+                      <p className="text-sm text-gray-500 truncate">Dueño: {m.base_teams?.owner?.full_name || 'Desconocido'}</p>
+                      <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full font-medium">Equipo Base</span>
+                    </div>
+                  </div>
+                ))}
+                {memberChampTeams.map((team: any) => (
+                  <div key={team.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex items-center gap-3">
+                    {team.logo_url ? (
+                      <img src={team.logo_url} alt={team.name} className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
+                    ) : (
+                      <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <Trophy className="h-6 w-6 text-white" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-gray-900 truncate">{team.name}</p>
+                      <p className="text-sm text-gray-500 truncate">{team.championship?.name}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-xs px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full font-medium">Campeonato</span>
+                        {team.captain?.full_name && <span className="text-xs text-gray-500">Cap: {team.captain.full_name}</span>}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {showCreateBaseTeamModal && (
