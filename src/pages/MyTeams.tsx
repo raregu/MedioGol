@@ -83,8 +83,7 @@ export const MyTeams = () => {
           const { data: teamPlayersData } = await supabase
             .from('team_players')
             .select('player_id, is_active, player_profiles(id, full_name, position, jersey_number, photo_url)')
-            .eq('team_id', team.id)
-            .eq('is_active', true);
+            .eq('team_id', team.id);
 
           if (teamPlayersData) {
             const playersData = teamPlayersData
@@ -623,12 +622,6 @@ export const MyTeams = () => {
                             )}
                           </div>
                           <p className="text-sm text-gray-500 truncate">{team.championship?.name}</p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <div className="flex-1 bg-gray-200 rounded-full h-1.5">
-                              <div className="bg-emerald-500 h-1.5 rounded-full" style={{ width: `${team.stamina}%` }} />
-                            </div>
-                            <span className="text-xs text-gray-500 flex-shrink-0">Stamina {team.stamina}%</span>
-                          </div>
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
                           <span className="text-sm text-gray-500">{players[team.id]?.length || 0} jug.</span>
@@ -792,8 +785,8 @@ export const MyTeams = () => {
                     )}
                     <div className="flex-1 min-w-0">
                       <p className="font-bold text-gray-900 truncate">{m.base_teams?.name}</p>
-                      <p className="text-sm text-gray-500 truncate">Dueño: {m.base_teams?.owner?.full_name || 'Desconocido'}</p>
-                      <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full font-medium">Equipo Base</span>
+                      <p className="text-sm text-gray-500 truncate">Capitán: {m.base_teams?.owner?.full_name || 'Desconocido'}</p>
+                      <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full font-medium">Equipo (fuera de campeonato)</span>
                     </div>
                   </div>
                 ))}
