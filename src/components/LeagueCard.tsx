@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { Championship, League, LeagueAdjustment, LeaguePhase } from '../types/database';
 import { generalStandings, GeneralRow, LeagueMatchRow, LeagueTeamRow, RawTeamRow, seriesLabel, toLeagueTeam } from '../utils/leagueStandings';
+import { fetchAllRows } from '../utils/fetchAll';
 import { Trophy } from 'lucide-react';
 
 /** Tarjeta de una liga: nombre, series y top 3 de la tabla general (fase por defecto). */
@@ -22,15 +23,25 @@ export const LeagueCard = ({ league }: { league: League }) => {
       setSeries(s);
       if (!s.length) return;
       const ids = s.map((c) => c.id);
-      const [{ data: t }, { data: m }] = await Promise.all([
-        supabase.from('teams').select('id, championship_id, name, base_team_id, logo_url, base_team:base_teams(logo_url)').in('championship_id', ids),
-        supabase.from('matches').select('id, championship_id, home_team_id, away_team_id, match_date, round, home_score, away_score, status, venue').in('championship_id', ids),
+      const [t, m] = await Promise.all([
+        fetchAllRows<RawTeamRow>((from, to) =>
+          supabase.from('teams').select('id, championship_id, name, base_team_id, logo_url, base_team:base_teams(logo_url)').in('championship_id', ids).order('id').range(from, to)
+        ),
+        fetchAllRows<LeagueMatchRow>((from, to) =>
+          supabase
+            .from('matches')
+            .select('id, championship_id, home_team_id, away_team_id, match_date, round, home_score, away_score, status, venue')
+            .in('championship_id', ids)
+            .eq('status', 'finished')
+            .order('id')
+            .range(from, to)
+        ),
       ]);
-      const teams: LeagueTeamRow[] = ((t || []) as RawTeamRow[]).map(toLeagueTeam);
+      const teams: LeagueTeamRow[] = t.map(toLeagueTeam);
       const phases = (ph || []) as LeaguePhase[];
       const def = phases.find((p) => p.is_default) || null;
       setPhase(def);
-      const rows = generalStandings(league, s, teams, (m || []) as LeagueMatchRow[], (adj || []) as LeagueAdjustment[], def);
+      const rows = generalStandings(league, s, teams, m, (adj || []) as LeagueAdjustment[], def);
       setClubCount(rows.length);
       setTop(rows.slice(0, 3));
     };
