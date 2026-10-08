@@ -49,7 +49,8 @@ export const Home = () => {
         .from('leagues')
         .select('*')
         .eq('status', 'active')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(4);
       setLeagues((leagueData || []) as League[]);
 
       const { data: goalsData } = await supabase
