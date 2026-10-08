@@ -74,26 +74,26 @@ export const Layout = ({ children }: LayoutProps) => {
               <span className="text-2xl font-black text-gray-900 tracking-tight">Mediogol</span>
             </div>
 
-            <div className="hidden md:flex items-center space-x-2">
-              <a href="/" className="px-4 py-2 text-gray-700 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all font-semibold flex items-center gap-2">
+            <div className="hidden md:flex items-center space-x-1">
+              <a href="/" className="px-3 py-2 text-gray-700 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all font-semibold flex items-center gap-2">
                 <Trophy className="h-5 w-5" />
                 Inicio
               </a>
-              <a href="/search" className="px-4 py-2 text-gray-700 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all font-semibold flex items-center gap-2">
+              <a href="/search" className="px-3 py-2 text-gray-700 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all font-semibold flex items-center gap-2">
                 <Search className="h-5 w-5" />
                 Buscar
               </a>
-              <a href="/leagues" className="px-4 py-2 text-gray-700 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all font-semibold flex items-center gap-2">
+              <a href="/leagues" className="px-3 py-2 text-gray-700 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all font-semibold flex items-center gap-2">
                 <Layers className="h-5 w-5" />
                 Ligas
               </a>
-              <a href="/teams" className="px-4 py-2 text-gray-700 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all font-semibold flex items-center gap-2">
+              <a href="/teams" className="px-3 py-2 text-gray-700 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all font-semibold flex items-center gap-2">
                 <Users className="h-5 w-5" />
                 Equipos
               </a>
               {profile && (
                 <>
-                  <a href="/my-teams" className="px-4 py-2 text-gray-700 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all font-semibold flex items-center gap-2 relative">
+                  <a href="/my-teams" className="px-3 py-2 text-gray-700 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all font-semibold flex items-center gap-2 relative">
                     <Users className="h-5 w-5" />
                     Mis Equipos
                     {pendingInvitations > 0 && (
@@ -102,26 +102,26 @@ export const Layout = ({ children }: LayoutProps) => {
                       </span>
                     )}
                   </a>
-                  <a href="/messages" className="px-4 py-2 text-gray-700 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all font-semibold flex items-center gap-2">
+                  <a href="/messages" className="px-3 py-2 text-gray-700 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all font-semibold flex items-center gap-2">
                     <MessageSquare className="h-5 w-5" />
                     Mensajes
                   </a>
-                  <a href="/live-matches" className="px-4 py-2 text-gray-700 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all font-semibold flex items-center gap-2">
+                  <a href="/live-matches" className="px-3 py-2 text-gray-700 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all font-semibold flex items-center gap-2">
                     <Trophy className="h-5 w-5" />
                     Eventos
                   </a>
-                  <a href="/credential" className="px-4 py-2 text-gray-700 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all font-semibold flex items-center gap-2">
+                  <a href="/credential" className="px-3 py-2 text-gray-700 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all font-semibold flex items-center gap-2">
                     <Shield className="h-5 w-5" />
                     Mi Credencial
                   </a>
                   {['admin_sistema', 'admin_campeonato', 'encargado_turno'].includes(profile.role) && (
-                    <a href="/validate" className="px-4 py-2 text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all font-semibold flex items-center gap-2">
+                    <a href="/validate" className="px-3 py-2 text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all font-semibold flex items-center gap-2">
                       <Shield className="h-5 w-5" />
                       Validar
                     </a>
                   )}
                   {profile.role !== 'usuario' && profile.role !== 'encargado_turno' && (
-                    <a href="/admin" className="px-4 py-2 text-gray-700 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all font-semibold flex items-center gap-2">
+                    <a href="/admin" className="px-3 py-2 text-gray-700 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all font-semibold flex items-center gap-2">
                       <BarChart3 className="h-5 w-5" />
                       Administrar
                     </a>
