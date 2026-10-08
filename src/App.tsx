@@ -12,6 +12,8 @@ import { PlayerProfile } from './pages/PlayerProfile';
 import { LiveMatches } from './pages/LiveMatches';
 import { PlayerCredentialPage } from './pages/PlayerCredential';
 import { ValidatePlayer } from './pages/ValidatePlayer';
+import { Leagues } from './pages/Leagues';
+import { LeagueDetail } from './pages/LeagueDetail';
 
 function App() {
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
@@ -39,6 +41,8 @@ function App() {
   if (currentPath === '/register') return <Register />;
   if (currentPath === '/search') return <Search />;
   if (currentPath.startsWith('/championship/')) return <ChampionshipDetail />;
+  if (currentPath === '/leagues') return <Leagues />;
+  if (currentPath.startsWith('/league/')) return <LeagueDetail />;
   if (currentPath.startsWith('/player/')) return <PlayerProfile />;
   if (currentPath === '/my-teams') return <MyTeams />;
   if (currentPath === '/messages') return <Messages />;

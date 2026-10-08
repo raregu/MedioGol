@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Layout } from '../components/Layout';
 import { supabase } from '../lib/supabase';
-import { Championship, Match, Team, TeamStanding, PlayoffConfig, PlayoffMatch, Advertisement, Sponsor } from '../types/database';
+import { Championship, Match, Team, TeamStanding, PlayoffConfig, PlayoffMatch, Advertisement, Sponsor, League } from '../types/database';
 import { Trophy, Calendar, MapPin, Users, Target, AlertCircle, Phone, FileText, CreditCard as Edit, Shield, Award, AlertTriangle, Eye, Trash2, Zap, Plus, BarChart2, Image } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { MatchDetailsModal } from '../components/admin/MatchDetailsModal';
@@ -17,6 +17,7 @@ import { AdsAndSponsorsCarousel } from '../components/AdsAndSponsorsCarousel';
 import { SponsorsManagementModal } from '../components/admin/SponsorsManagementModal';
 import { ChampionshipChat } from '../components/ChampionshipChat';
 import { ChampionshipGallery } from '../components/ChampionshipGallery';
+import { LeagueBanner } from '../components/LeagueBanner';
 
 interface TopScorer {
   player_id: string;
@@ -48,6 +49,8 @@ interface Sanction {
 export const ChampionshipDetail = () => {
   const { profile } = useAuth();
   const [championship, setChampionship] = useState<Championship | null>(null);
+  const [league, setLeague] = useState<League | null>(null);
+  const [leagueSeries, setLeagueSeries] = useState<Championship[]>([]);
   const [standings, setStandings] = useState<TeamStanding[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
@@ -101,6 +104,18 @@ export const ChampionshipDetail = () => {
         .maybeSingle();
 
       if (champData) setChampionship(champData);
+
+      if (champData?.league_id) {
+        const [{ data: leagueData }, { data: siblings }] = await Promise.all([
+          supabase.from('leagues').select('*').eq('id', champData.league_id).maybeSingle(),
+          supabase.from('championships').select('id, name, series_name, display_order').eq('league_id', champData.league_id).order('display_order').order('name'),
+        ]);
+        setLeague(leagueData);
+        setLeagueSeries((siblings || []) as Championship[]);
+      } else {
+        setLeague(null);
+        setLeagueSeries([]);
+      }
 
       const { data: teamsData, error: teamsError } = await supabase
         .from('teams')
@@ -482,6 +497,8 @@ export const ChampionshipDetail = () => {
             <AdsAndSponsorsCarousel advertisements={advertisements} sponsors={sponsors} />
           </div>
         )}
+
+        {league && <LeagueBanner league={league} series={leagueSeries} currentId={championship.id} />}
 
         <div className="bg-gradient-to-r from-emerald-600 to-teal-600 rounded-xl shadow-lg overflow-hidden">
           <div className="p-4 text-white">
