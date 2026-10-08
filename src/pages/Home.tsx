@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { Championship, League, TopScorer } from '../types/database';
 import { LeagueCard } from '../components/LeagueCard';
+import { HomeSearch } from '../components/HomeSearch';
 import { formatDateOnly } from '../utils/dates';
 import { CreateTeamModal } from '../components/CreateTeamModal';
 import { Trophy, TrendingUp, Users, Calendar, MapPin, Target, Plus, User, Star, Layers } from 'lucide-react';
@@ -228,6 +229,8 @@ export const Home = () => {
             </div>
           </section>
         )}
+
+        <HomeSearch />
 
         {leagues.length > 0 && (
           <section>
