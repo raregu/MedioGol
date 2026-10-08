@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { Championship, League, TopScorer } from '../types/database';
 import { LeagueCard } from '../components/LeagueCard';
+import { formatDateOnly } from '../utils/dates';
 import { CreateTeamModal } from '../components/CreateTeamModal';
 import { Trophy, TrendingUp, Users, Calendar, MapPin, Target, Plus, User, Star, Layers } from 'lucide-react';
 
@@ -300,7 +301,7 @@ export const Home = () => {
                         <div className="p-2 bg-gray-100 rounded-lg">
                           <Calendar className="h-4 w-4 text-gray-600" />
                         </div>
-                        <span className="font-medium">{new Date(championship.start_date).toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                        <span className="font-medium">{formatDateOnly(championship.start_date, { year: 'numeric', month: 'long', day: 'numeric' }, 'es-ES')}</span>
                       </div>
                     )}
                     {championship.admin && (
