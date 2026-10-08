@@ -1,7 +1,7 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { Trophy, Search, Users, BarChart3, MessageSquare, LogOut, Menu, X, Bell, Shield } from 'lucide-react';
+import { Trophy, Search, Users, BarChart3, MessageSquare, LogOut, Menu, X, Bell, Shield, Layers } from 'lucide-react';
 import { CaptainNotificationsModal } from './CaptainNotificationsModal';
 
 interface LayoutProps {
@@ -82,6 +82,10 @@ export const Layout = ({ children }: LayoutProps) => {
               <a href="/search" className="px-4 py-2 text-gray-700 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all font-semibold flex items-center gap-2">
                 <Search className="h-5 w-5" />
                 Buscar
+              </a>
+              <a href="/leagues" className="px-4 py-2 text-gray-700 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all font-semibold flex items-center gap-2">
+                <Layers className="h-5 w-5" />
+                Ligas
               </a>
               <a href="/teams" className="px-4 py-2 text-gray-700 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all font-semibold flex items-center gap-2">
                 <Users className="h-5 w-5" />
@@ -185,6 +189,10 @@ export const Layout = ({ children }: LayoutProps) => {
                 <a href="/search" className="text-gray-700 hover:text-emerald-600 py-2 flex items-center gap-2">
                   <Search className="h-5 w-5" />
                   Buscar
+                </a>
+                <a href="/leagues" className="text-gray-700 hover:text-emerald-600 py-2 flex items-center gap-2">
+                  <Layers className="h-5 w-5" />
+                  Ligas
                 </a>
                 <a href="/teams" className="text-gray-700 hover:text-emerald-600 py-2 flex items-center gap-2">
                   <Users className="h-5 w-5" />

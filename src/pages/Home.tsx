@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react';
 import { Layout } from '../components/Layout';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { Championship, TopScorer } from '../types/database';
+import { Championship, League, TopScorer } from '../types/database';
+import { LeagueCard } from '../components/LeagueCard';
 import { CreateTeamModal } from '../components/CreateTeamModal';
-import { Trophy, TrendingUp, Users, Calendar, MapPin, Target, Plus, User, Star } from 'lucide-react';
+import { Trophy, TrendingUp, Users, Calendar, MapPin, Target, Plus, User, Star, Layers } from 'lucide-react';
 
 interface PlayerProfile {
   id: string;
@@ -20,6 +21,7 @@ interface PlayerProfile {
 export const Home = () => {
   const { profile } = useAuth();
   const [championships, setChampionships] = useState<Championship[]>([]);
+  const [leagues, setLeagues] = useState<League[]>([]);
   const [topScorers, setTopScorers] = useState<TopScorer[]>([]);
   const [playerProfile, setPlayerProfile] = useState<PlayerProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -37,9 +39,17 @@ export const Home = () => {
         .select('*, admin:profiles!championships_admin_id_fkey(full_name)')
         .eq('status', 'active')
         .order('created_at', { ascending: false })
-        .limit(6);
+        .limit(30);
 
-      if (champData) setChampionships(champData);
+      // Los campeonatos que son series de una liga se muestran dentro de la tarjeta de la liga
+      if (champData) setChampionships(champData.filter((c) => !c.league_id).slice(0, 6));
+
+      const { data: leagueData } = await supabase
+        .from('leagues')
+        .select('*')
+        .eq('status', 'active')
+        .order('created_at', { ascending: false });
+      setLeagues((leagueData || []) as League[]);
 
       const { data: goalsData } = await supabase
         .from('match_events')
@@ -213,6 +223,25 @@ export const Home = () => {
                   Crear Cuenta
                 </a>
               </div>
+            </div>
+          </section>
+        )}
+
+        {leagues.length > 0 && (
+          <section>
+            <div className="flex items-center justify-between gap-4 mb-8">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-emerald-100 rounded-xl">
+                  <Layers className="h-8 w-8 text-emerald-600" />
+                </div>
+                <h2 className="text-4xl font-black text-gray-900">Ligas</h2>
+              </div>
+              <a href="/leagues" className="text-emerald-700 font-bold hover:underline">Ver todas</a>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {leagues.map((l) => (
+                <LeagueCard key={l.id} league={l} />
+              ))}
             </div>
           </section>
         )}

@@ -120,6 +120,9 @@ export interface Championship {
   location?: string;
   contact_phone?: string;
   facebook_page_url?: string;
+  league_id?: string | null;
+  series_name?: string | null;
+  display_order?: number;
   champion_team_id?: string;
   runner_up_team_id?: string;
   third_place_team_id?: string;
@@ -375,4 +378,47 @@ export interface PlayoffMatch {
   team2?: BaseTeam;
   winner?: BaseTeam;
   championship?: Championship;
+}
+
+export type LeagueStatus = 'draft' | 'active' | 'finished';
+
+export interface League {
+  id: string;
+  name: string;
+  season?: string | null;
+  description?: string | null;
+  location?: string | null;
+  logo_url?: string | null;
+  facebook_page_url?: string | null;
+  website_url?: string | null;
+  admin_id?: string | null;
+  status: LeagueStatus;
+  points_win: number;
+  points_draw: number;
+  points_loss: number;
+  created_at: string;
+}
+
+export interface LeaguePhase {
+  id: string;
+  league_id: string;
+  name: string;
+  round_from: number;
+  round_to: number;
+  display_order: number;
+  is_default: boolean;
+  created_at: string;
+}
+
+export interface LeagueAdjustment {
+  id: string;
+  league_id: string;
+  phase_id?: string | null;
+  base_team_id: string;
+  points: number;
+  goal_difference: number;
+  reason: string;
+  applied_on: string;
+  created_by?: string | null;
+  created_at: string;
 }
