@@ -16,6 +16,7 @@ import {
   seriesStandings,
 } from '../utils/leagueStandings';
 import { LeagueManageModal } from '../components/admin/LeagueManageModal';
+import { fetchAllRows } from '../utils/fetchAll';
 import {
   AlertCircle,
   ArrowRight,
@@ -84,16 +85,22 @@ export const LeagueDetail = () => {
 
       const ids = seriesList.map((c) => c.id);
       if (ids.length) {
-        const [{ data: teamData }, { data: matchData }] = await Promise.all([
-          supabase.from('teams').select('id, championship_id, name, base_team_id, logo_url, base_team:base_teams(logo_url)').in('championship_id', ids),
-          supabase
-            .from('matches')
-            .select('id, championship_id, home_team_id, away_team_id, match_date, round, home_score, away_score, status, venue')
-            .in('championship_id', ids)
-            .order('match_date'),
+        const [teamData, matchData] = await Promise.all([
+          fetchAllRows<RawTeamRow>((from, to) =>
+            supabase.from('teams').select('id, championship_id, name, base_team_id, logo_url, base_team:base_teams(logo_url)').in('championship_id', ids).order('id').range(from, to)
+          ),
+          fetchAllRows<LeagueMatchRow>((from, to) =>
+            supabase
+              .from('matches')
+              .select('id, championship_id, home_team_id, away_team_id, match_date, round, home_score, away_score, status, venue')
+              .in('championship_id', ids)
+              .order('match_date')
+              .order('id')
+              .range(from, to)
+          ),
         ]);
-        setTeams(((teamData || []) as RawTeamRow[]).map(toLeagueTeam));
-        setMatches((matchData || []) as LeagueMatchRow[]);
+        setTeams(teamData.map(toLeagueTeam));
+        setMatches(matchData);
       } else {
         setTeams([]);
         setMatches([]);

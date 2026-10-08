@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { Championship, League, LeagueAdjustment, LeaguePhase, LeagueStatus } from '../../types/database';
+import { useDebounce } from '../../utils/useDebounce';
 import { Plus, Trash2, X } from 'lucide-react';
 
 interface Props {
@@ -54,22 +55,22 @@ export const LeagueManageModal = ({ league, onClose, onSaved }: Props) => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
+  const debouncedFilter = useDebounce(filter.trim(), 300);
+
+  // Series actuales de la liga
   useEffect(() => {
     const load = async () => {
-      let q = supabase.from('championships').select('*').order('created_at', { ascending: false });
-      if (profile?.role !== 'admin_sistema') q = q.eq('admin_id', profile?.id || '');
-      const { data: champs } = await q;
-      const available = ((champs || []) as Championship[]).filter((c) => !c.league_id || c.league_id === league?.id);
-      setSeriesRows(
-        available
-          .map((c) => ({
+      if (league) {
+        const { data } = await supabase.from('championships').select('*').eq('league_id', league.id).order('display_order');
+        setSeriesRows(
+          ((data || []) as Championship[]).map((c) => ({
             championship: c,
-            included: !!league && c.league_id === league.id,
+            included: true,
             series_name: c.series_name || '',
             display_order: c.display_order ?? 0,
           }))
-          .sort((a, b) => Number(b.included) - Number(a.included) || a.display_order - b.display_order)
-      );
+        );
+      }
 
       if (league) {
         const [{ data: ph }, { data: ad }] = await Promise.all([
@@ -81,7 +82,31 @@ export const LeagueManageModal = ({ league, onClose, onSaved }: Props) => {
       }
     };
     load();
-  }, [league, profile]);
+  }, [league]);
+
+  // Candidatos: campeonatos sin liga que administra el usuario, buscados en el servidor (máx. 20)
+  useEffect(() => {
+    const load = async () => {
+      const { data } = await supabase.rpc('search_championships', {
+        p_query: debouncedFilter || null,
+        p_without_league: true,
+        p_limit: 20,
+        p_offset: 0,
+      });
+      const mine = ((data || []) as Championship[]).filter((c) => profile?.role === 'admin_sistema' || c.admin_id === profile?.id);
+      setSeriesRows((rows) => {
+        const keep = rows.filter((r) => r.included || r.championship.league_id === league?.id);
+        const ids = new Set(keep.map((r) => r.championship.id));
+        return [
+          ...keep,
+          ...mine
+            .filter((c) => !ids.has(c.id))
+            .map((c) => ({ championship: { ...c, league_id: null } as Championship, included: false, series_name: '', display_order: 0 })),
+        ];
+      });
+    };
+    load();
+  }, [debouncedFilter, profile, league]);
 
   const includedIds = useMemo(() => seriesRows.filter((r) => r.included).map((r) => r.championship.id), [seriesRows]);
 
@@ -211,9 +236,7 @@ export const LeagueManageModal = ({ league, onClose, onSaved }: Props) => {
     window.history.pushState({}, '', '/leagues');
   };
 
-  const visibleSeries = seriesRows.filter(
-    (r) => r.included || !filter || r.championship.name.toLowerCase().includes(filter.toLowerCase())
-  );
+  const visibleSeries = seriesRows;
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
@@ -278,9 +301,9 @@ export const LeagueManageModal = ({ league, onClose, onSaved }: Props) => {
             <div className="flex flex-wrap items-end justify-between gap-2">
               <div>
                 <h3 className="text-sm font-black uppercase tracking-wide text-emerald-800">Series</h3>
-                <p className="text-xs text-gray-600">Marca los campeonatos que forman parte de la liga. Solo aparecen los que administras y no están en otra liga.</p>
+                <p className="text-xs text-gray-600">Marca los campeonatos que forman parte de la liga. Busca entre los que administras y no están en otra liga (se muestran hasta 20).</p>
               </div>
-              <input className={`${input} sm:max-w-[220px]`} placeholder="Filtrar campeonatos" value={filter} onChange={(e) => setFilter(e.target.value)} aria-label="Filtrar campeonatos" />
+              <input className={`${input} sm:max-w-[220px]`} placeholder="Buscar campeonatos" value={filter} onChange={(e) => setFilter(e.target.value)} aria-label="Filtrar campeonatos" />
             </div>
             <div className="border border-gray-200 rounded-lg divide-y divide-gray-100">
               {visibleSeries.length === 0 && <p className="p-4 text-sm text-gray-500">No hay campeonatos disponibles.</p>}
