@@ -16,6 +16,7 @@ import {
   seriesStandings,
 } from '../utils/leagueStandings';
 import { LeagueManageModal } from '../components/admin/LeagueManageModal';
+import { LeagueChat } from '../components/LeagueChat';
 import { fetchAllRows } from '../utils/fetchAll';
 import {
   AlertCircle,
@@ -553,6 +554,10 @@ export const LeagueDetail = () => {
           </p>
         )}
       </div>
+
+      <LeagueChat
+        data={league ? { league, series, teams, matches, phases, adjustments, encounters } : null}
+      />
 
       {showManage && (
         <LeagueManageModal
