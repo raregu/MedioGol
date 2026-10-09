@@ -30,19 +30,21 @@ interface HomeMatch {
   venue: string | null;
   home_team: { name: string } | null;
   away_team: { name: string } | null;
-  championship: { name: string; series_name: string | null; league_id: string | null } | null;
+  championship: { name: string; series_name: string | null; league_id: string | null; league: { name: string } | null } | null;
 }
 
 const MATCH_SELECT =
-  'id, championship_id, match_date, home_score, away_score, status, venue, home_team:teams!matches_home_team_id_fkey(name), away_team:teams!matches_away_team_id_fkey(name), championship:championships(name, series_name, league_id)';
+  'id, championship_id, match_date, home_score, away_score, status, venue, home_team:teams!matches_home_team_id_fkey(name), away_team:teams!matches_away_team_id_fkey(name), championship:championships(name, series_name, league_id, league:leagues(name))';
 
 const shortDay = (iso: string) =>
   new Date(iso).toLocaleDateString('es-CL', { weekday: 'short', day: 'numeric', month: 'short' }).replace('.', '');
 const shortTime = (iso: string) => new Date(iso).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' });
+// "Liga Rural Casablanca · Súper Sénior" para series de una liga; si no, el nombre del campeonato
 const champLabel = (m: HomeMatch) => {
   const c = m.championship;
   if (!c) return '';
-  return c.series_name ? c.series_name : c.name;
+  if (c.league) return `${c.league.name} · ${c.series_name || c.name}`;
+  return c.name;
 };
 
 const SectionHeader = ({ title, href, linkText }: { title: string; href?: string; linkText?: string }) => (
@@ -63,7 +65,7 @@ const ResultRow = ({ m }: { m: HomeMatch }) => {
   return (
     <a href={`/championship/${m.championship_id}`} className="block px-5 py-3.5 border-t border-mg-line first:border-t-0 hover:bg-mg-surface-2">
       <div className="flex justify-between gap-3 text-[13px] text-mg-muted mb-1.5">
-        <span className="truncate">{champLabel(m)}</span>
+        <span className="truncate font-semibold text-mg-ink">{champLabel(m)}</span>
         <span className="flex-shrink-0 capitalize">{shortDay(m.match_date)}</span>
       </div>
       <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3">
@@ -82,7 +84,7 @@ const ResultRow = ({ m }: { m: HomeMatch }) => {
 const UpcomingRow = ({ m }: { m: HomeMatch }) => (
   <a href={`/championship/${m.championship_id}`} className="block px-5 py-3.5 border-t border-mg-line first:border-t-0 hover:bg-mg-surface-2">
     <div className="flex justify-between gap-3 text-[13px] text-mg-muted mb-1.5">
-      <span className="truncate">{champLabel(m)}</span>
+      <span className="truncate font-semibold text-mg-ink">{champLabel(m)}</span>
       {m.venue && (
         <span className="flex items-center gap-1 truncate">
           <MapPin className="h-3.5 w-3.5 flex-shrink-0" aria-hidden="true" />
