@@ -63,16 +63,16 @@ export const Layout = ({ children }: LayoutProps) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-slate-100">
+    <div className="min-h-screen bg-mg-bg">
       <nav className="bg-white/80 backdrop-blur-md shadow-lg sticky top-0 z-50 border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-20">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-xl">
-                <img src="/logo-mediogol.png" alt="Mediogol" className="h-8 w-auto" />
-              </div>
-              <span className="text-2xl font-black text-gray-900 tracking-tight">Mediogol</span>
-            </div>
+            <a href="/" className="flex items-center gap-2.5">
+              <img src="/logo-mediogol.png" alt="" className="h-11 w-11" />
+              <span className="font-display text-[28px] leading-none font-extrabold uppercase tracking-[0.01em] text-mg-ink">
+                Medio<span className="text-mg-pitch">Gol</span>
+              </span>
+            </a>
 
             <div className="hidden md:flex items-center space-x-1">
               <a href="/" className="px-3 py-2 text-gray-700 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all font-semibold flex items-center gap-2">

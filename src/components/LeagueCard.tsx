@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { Championship, League, LeagueAdjustment, LeaguePhase } from '../types/database';
 import { generalStandings, GeneralRow, LeagueMatchRow, LeagueTeamRow, RawTeamRow, seriesLabel, toLeagueTeam } from '../utils/leagueStandings';
 import { fetchAllRows } from '../utils/fetchAll';
-import { Trophy } from 'lucide-react';
+import { ArrowRight, Trophy } from 'lucide-react';
 
 /** Tarjeta de una liga: nombre, series y top 3 de la tabla general (fase por defecto). */
 export const LeagueCard = ({ league }: { league: League }) => {
@@ -49,57 +49,58 @@ export const LeagueCard = ({ league }: { league: League }) => {
   }, [league]);
 
   return (
-    <article className="bg-white rounded-2xl shadow-lg border-2 border-gray-100 hover:border-emerald-300 transition-all overflow-hidden flex flex-col">
-      <div className="bg-emerald-950 text-white p-5 flex items-center gap-4">
+    <article className="bg-mg-surface rounded-mg-lg border border-mg-line hover:shadow-mg-card transition-shadow overflow-hidden flex flex-col">
+      <div className="bg-mg-navy text-mg-on-navy px-5 sm:px-6 py-5 flex flex-wrap items-center gap-4">
         {league.logo_url ? (
-          <img src={league.logo_url} alt="" className="h-14 w-14 rounded-full object-cover border-[3px] border-amber-400 bg-white flex-shrink-0" />
+          <img src={league.logo_url} alt="" className="h-14 w-14 rounded-full object-cover bg-white flex-shrink-0" />
         ) : (
-          <div className="h-14 w-14 rounded-full bg-white text-emerald-900 flex items-center justify-center border-[3px] border-amber-400 flex-shrink-0">
-            <Trophy className="h-6 w-6" />
+          <div className="h-14 w-14 rounded-full bg-mg-surface text-mg-ink flex items-center justify-center flex-shrink-0">
+            <Trophy className="h-6 w-6" aria-hidden="true" />
           </div>
         )}
-        <div className="flex-1 min-w-0">
-          <p className="text-[11px] font-bold uppercase tracking-widest text-emerald-300">
+        <div className="flex-1 min-w-[12rem]">
+          <p className="mg-label text-mg-on-navy-muted">
             Liga · {series.length} series{clubCount ? ` · ${clubCount} clubes` : ''}
           </p>
-          <a href={`/league/${league.id}`} className="block text-xl font-black leading-tight hover:underline">
+          <a href={`/league/${league.id}`} className="block font-display text-[28px] leading-[30px] font-extrabold uppercase tracking-[0.01em] hover:underline">
             {league.name}{league.season ? ` ${league.season}` : ''}
           </a>
         </div>
+        <a href={`/league/${league.id}`} className="inline-flex items-center gap-1.5 min-h-[44px] px-4 rounded-mg-md bg-mg-gold text-mg-on-gold font-extrabold text-sm hover:brightness-105">
+          Ver liga
+          <ArrowRight className="h-4 w-4" aria-hidden="true" />
+        </a>
       </div>
-      <div className="p-5 grid gap-5 sm:grid-cols-2 flex-1">
+      <div className="px-5 sm:px-6 py-5 grid gap-6 sm:grid-cols-2 flex-1">
         <div>
-          <p className="text-xs font-black uppercase tracking-wide text-gray-500 mb-2">
+          <p className="mg-label text-mg-muted mb-3">
             Tabla general{phase ? ` · ${phase.name}` : ''}
           </p>
           {top.length === 0 ? (
-            <p className="text-sm text-gray-500">Sin partidos jugados aún.</p>
+            <p className="text-sm text-mg-muted">Sin partidos jugados aún.</p>
           ) : (
-            <ol className="space-y-1.5">
+            <ol className="space-y-2">
               {top.map((r, i) => (
-                <li key={r.club.key} className="flex items-center gap-2 text-sm">
-                  <span className="w-5 font-black text-emerald-900">{i + 1}</span>
-                  <span className="flex-1 font-semibold text-gray-900 truncate">{r.club.name}</span>
-                  <span className="font-black text-emerald-900">{r.points}</span>
+                <li key={r.club.key} className="flex items-center gap-3">
+                  <span className={`mg-num w-7 h-7 rounded-mg-sm flex items-center justify-center text-lg font-extrabold ${i === 0 ? 'bg-mg-gold text-mg-on-gold' : 'text-mg-ink'}`}>{i + 1}</span>
+                  <span className="flex-1 font-bold text-mg-ink truncate">{r.club.name}</span>
+                  <span className="mg-num text-lg font-extrabold text-mg-ink">{r.points}</span>
                 </li>
               ))}
             </ol>
           )}
         </div>
         <div>
-          <p className="text-xs font-black uppercase tracking-wide text-gray-500 mb-2">Series</p>
-          <div className="flex flex-wrap gap-1.5">
+          <p className="mg-label text-mg-muted mb-3">Series</p>
+          <div className="flex flex-wrap gap-2">
             {series.map((s) => (
-              <a key={s.id} href={`/championship/${s.id}`} className="px-3 py-1.5 rounded-full border border-gray-300 text-xs font-bold text-gray-700 hover:border-emerald-500 hover:text-emerald-700">
+              <a key={s.id} href={`/championship/${s.id}`} className="px-3.5 py-2 rounded-full border border-mg-line-strong text-[13px] font-bold text-mg-ink hover:bg-mg-navy hover:border-mg-navy hover:text-mg-on-navy">
                 {seriesLabel(s)}
               </a>
             ))}
           </div>
         </div>
       </div>
-      <a href={`/league/${league.id}`} className="m-5 mt-0 text-center px-5 py-3 text-emerald-700 font-bold text-sm hover:bg-emerald-50 rounded-xl border-2 border-emerald-600">
-        Ver liga
-      </a>
     </article>
   );
 };

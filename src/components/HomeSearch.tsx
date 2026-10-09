@@ -98,100 +98,94 @@ export const HomeSearch = () => {
           go(s.href);
         }}
         onMouseEnter={() => setActive(idx)}
-        className={`flex items-center gap-3 px-4 py-3 cursor-pointer ${idx === active ? 'bg-emerald-50' : ''}`}
+        className={`flex items-center gap-3 px-5 py-2.5 cursor-pointer ${idx === active ? 'bg-mg-surface-2' : ''}`}
       >
-        <span className={`h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0 ${s.kind === 'league' ? 'bg-emerald-950 text-amber-300' : 'bg-emerald-100 text-emerald-700'}`}>
+        <span className={`h-9 w-9 rounded-mg-md flex items-center justify-center flex-shrink-0 ${s.kind === 'league' ? 'bg-mg-navy text-mg-gold' : 'bg-mg-pitch-tint text-mg-pitch'}`}>
           {s.kind === 'league' ? <Layers className="h-4 w-4" /> : <Trophy className="h-4 w-4" />}
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block font-semibold text-gray-900 truncate">{s.title}</span>
-          <span className="block text-xs text-gray-500 truncate">{s.subtitle}</span>
+          <span className="block font-bold text-mg-ink truncate">{s.title}</span>
+          <span className="block text-[13px] text-mg-muted truncate">{s.subtitle}</span>
         </span>
       </li>
     );
   };
 
   return (
-    <section aria-labelledby="home-search-title" className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 md:p-8">
-      <h2 id="home-search-title" className="text-2xl md:text-3xl font-black text-gray-900 mb-1">Encuentra tu liga o campeonato</h2>
-      <p className="text-gray-600 mb-5">Escribe el nombre de la liga, la serie, la ciudad o tu club.</p>
-      <div ref={boxRef} className="relative">
-        <form
-          role="search"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (active >= 0 && items[active]) go(items[active].href);
-            else searchAll();
+    <div ref={boxRef} className="relative w-full max-w-2xl">
+      <form
+        role="search"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (active >= 0 && items[active]) go(items[active].href);
+          else searchAll();
+        }}
+        className="flex items-center gap-2 h-14 pl-5 pr-1.5 bg-mg-surface border border-mg-line-strong rounded-full shadow-mg-card focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-mg-gold"
+      >
+        <SearchIcon className="h-5 w-5 text-mg-muted flex-shrink-0" aria-hidden="true" />
+        <label htmlFor="home-search-input" className="sr-only">Busca tu liga, campeonato o equipo</label>
+        <input
+          id="home-search-input"
+          type="search"
+          role="combobox"
+          aria-expanded={showList}
+          aria-controls="home-search-list"
+          aria-autocomplete="list"
+          aria-activedescendant={active >= 0 ? `home-search-${active}` : undefined}
+          autoComplete="off"
+          value={text}
+          placeholder="Busca tu liga, campeonato o equipo"
+          onFocus={() => setOpen(true)}
+          onChange={(e) => {
+            setText(e.target.value);
+            setOpen(true);
           }}
-          className="flex gap-2"
-        >
-          <div className="relative flex-1">
-            <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-            <label htmlFor="home-search-input" className="sr-only">Buscar liga o campeonato</label>
-            <input
-              id="home-search-input"
-              type="search"
-              role="combobox"
-              aria-expanded={showList}
-              aria-controls="home-search-list"
-              aria-autocomplete="list"
-              aria-activedescendant={active >= 0 ? `home-search-${active}` : undefined}
-              autoComplete="off"
-              value={text}
-              placeholder="Ej: Liga Rural Casablanca, Vitacura, Súper Sénior, Mezcaleros…"
-              onFocus={() => setOpen(true)}
-              onChange={(e) => {
-                setText(e.target.value);
-                setOpen(true);
-              }}
-              onKeyDown={(e) => {
-                if (!showList || !items.length) return;
-                if (e.key === 'ArrowDown') {
-                  e.preventDefault();
-                  setActive((a) => Math.min(a + 1, items.length - 1));
-                } else if (e.key === 'ArrowUp') {
-                  e.preventDefault();
-                  setActive((a) => Math.max(a - 1, -1));
-                } else if (e.key === 'Escape') {
-                  setOpen(false);
-                }
-              }}
-              className="w-full pl-12 pr-4 py-4 text-lg border-2 border-gray-200 rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none"
-            />
-          </div>
-          <button type="submit" className="px-5 md:px-7 rounded-xl bg-emerald-600 text-white font-bold hover:bg-emerald-700 flex items-center gap-2">
-            <span className="hidden sm:inline">Buscar</span>
-            <ArrowRight className="h-5 w-5" />
-          </button>
-        </form>
+          onKeyDown={(e) => {
+            if (!showList || !items.length) return;
+            if (e.key === 'ArrowDown') {
+              e.preventDefault();
+              setActive((a) => Math.min(a + 1, items.length - 1));
+            } else if (e.key === 'ArrowUp') {
+              e.preventDefault();
+              setActive((a) => Math.max(a - 1, -1));
+            } else if (e.key === 'Escape') {
+              setOpen(false);
+            }
+          }}
+          className="flex-1 min-w-0 bg-transparent text-base font-semibold text-mg-ink placeholder:text-mg-muted placeholder:font-medium outline-none"
+        />
+        <button type="submit" className="h-11 px-4 sm:px-5 rounded-full bg-mg-pitch text-mg-on-pitch font-extrabold text-sm flex items-center gap-2 hover:brightness-110">
+          <span className="hidden sm:inline">Buscar</span>
+          <ArrowRight className="h-4 w-4" aria-hidden="true" />
+        </button>
+      </form>
 
-        {showList && (
-          <div className="absolute z-30 left-0 right-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-2xl overflow-hidden">
-            <ul id="home-search-list" role="listbox" aria-label="Sugerencias" className="max-h-[60vh] overflow-auto">
-              {loading && items.length === 0 && <li className="px-4 py-3 text-sm text-gray-500">Buscando…</li>}
-              {!loading && items.length === 0 && <li className="px-4 py-3 text-sm text-gray-500">No encontramos ligas ni campeonatos con ese nombre.</li>}
-              {leagues.length > 0 && (
-                <li role="presentation" className="px-4 pt-3 pb-1 text-[11px] font-black uppercase tracking-wider text-gray-500">Ligas</li>
-              )}
-              {leagues.map(renderItem)}
-              {champs.length > 0 && (
-                <li role="presentation" className="px-4 pt-3 pb-1 text-[11px] font-black uppercase tracking-wider text-gray-500">Campeonatos</li>
-              )}
-              {champs.map(renderItem)}
-            </ul>
-            <button
-              type="button"
-              onMouseDown={(e) => {
-                e.preventDefault();
-                searchAll();
-              }}
-              className="w-full text-left px-4 py-3 border-t border-gray-100 text-sm font-bold text-emerald-700 hover:bg-emerald-50"
-            >
-              Ver todos los resultados para “{text.trim()}” →
-            </button>
-          </div>
-        )}
-      </div>
-    </section>
+      {showList && (
+        <div className="absolute z-30 left-0 right-0 mt-2 bg-mg-surface border border-mg-line rounded-mg-lg shadow-mg-card overflow-hidden text-left">
+          <ul id="home-search-list" role="listbox" aria-label="Sugerencias" className="max-h-[60vh] overflow-auto py-1">
+            {loading && items.length === 0 && <li className="px-5 py-3 text-sm text-mg-muted">Buscando…</li>}
+            {!loading && items.length === 0 && <li className="px-5 py-3 text-sm text-mg-muted">No encontramos ligas ni campeonatos con ese nombre.</li>}
+            {leagues.length > 0 && (
+              <li role="presentation" className="mg-label px-5 pt-3 pb-1 text-mg-muted">Ligas</li>
+            )}
+            {leagues.map(renderItem)}
+            {champs.length > 0 && (
+              <li role="presentation" className="mg-label px-5 pt-3 pb-1 text-mg-muted">Campeonatos</li>
+            )}
+            {champs.map(renderItem)}
+          </ul>
+          <button
+            type="button"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              searchAll();
+            }}
+            className="w-full text-left px-5 py-3 border-t border-mg-line text-sm font-bold text-mg-pitch hover:bg-mg-surface-2"
+          >
+            Ver todos los resultados para “{text.trim()}”
+          </button>
+        </div>
+      )}
+    </div>
   );
 };

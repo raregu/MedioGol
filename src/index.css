@@ -2,6 +2,46 @@
 @tailwind components;
 @tailwind utilities;
 
+/* MedioGol Design System — tema Día */
+:root {
+  --mg-surface-000: #f3f5f2;
+  --mg-surface-100: #ffffff;
+  --mg-surface-200: #eef2ee;
+  --mg-line: #dce3de;
+  --mg-line-strong: #7d8e87;
+  --mg-ink: #0c1a2e;
+  --mg-ink-muted: #4a5968;
+  --mg-navy: #0f2340;
+  --mg-on-navy: #ffffff;
+  --mg-on-navy-muted: #a9bdd6;
+  --mg-pitch: #147a3b;
+  --mg-on-pitch: #ffffff;
+  --mg-pitch-deep: #0b4d26;
+  --mg-pitch-tint: #e3f3e8;
+  --mg-lime: #8cc63f;
+  --mg-gold: #f5c518;
+  --mg-on-gold: #221800;
+  --mg-gold-ink: #7a5200;
+  --mg-flame: #e8892b;
+  --mg-danger: #b42318;
+  --mg-danger-tint: #fdecea;
+  --mg-focus: #0f2340;
+}
+
+@layer components {
+  .mg-label {
+    @apply text-xs font-extrabold uppercase tracking-[0.08em];
+  }
+  .mg-num {
+    @apply font-display;
+    font-variant-numeric: tabular-nums;
+  }
+  /* Franjas de césped: patrón de marca */
+  .mg-grass {
+    background-image: repeating-linear-gradient(90deg, var(--mg-pitch-deep) 0 24px, var(--mg-pitch) 24px 48px);
+  }
+}
+
 @layer utilities {
   @keyframes fadeIn {
     from {

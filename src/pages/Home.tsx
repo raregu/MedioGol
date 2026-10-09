@@ -7,7 +7,7 @@ import { LeagueCard } from '../components/LeagueCard';
 import { HomeSearch } from '../components/HomeSearch';
 import { formatDateOnly } from '../utils/dates';
 import { CreateTeamModal } from '../components/CreateTeamModal';
-import { Trophy, TrendingUp, Users, Calendar, MapPin, Target, Plus, User, Star, Layers } from 'lucide-react';
+import { ArrowRight, MapPin, Plus, User } from 'lucide-react';
 
 interface PlayerProfile {
   id: string;
@@ -20,10 +20,95 @@ interface PlayerProfile {
   avg_rating: string;
 }
 
+interface HomeMatch {
+  id: string;
+  championship_id: string;
+  match_date: string;
+  home_score: number | null;
+  away_score: number | null;
+  status: string;
+  venue: string | null;
+  home_team: { name: string } | null;
+  away_team: { name: string } | null;
+  championship: { name: string; series_name: string | null; league_id: string | null } | null;
+}
+
+const MATCH_SELECT =
+  'id, championship_id, match_date, home_score, away_score, status, venue, home_team:teams!matches_home_team_id_fkey(name), away_team:teams!matches_away_team_id_fkey(name), championship:championships(name, series_name, league_id)';
+
+const shortDay = (iso: string) =>
+  new Date(iso).toLocaleDateString('es-CL', { weekday: 'short', day: 'numeric', month: 'short' }).replace('.', '');
+const shortTime = (iso: string) => new Date(iso).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' });
+const champLabel = (m: HomeMatch) => {
+  const c = m.championship;
+  if (!c) return '';
+  return c.series_name ? c.series_name : c.name;
+};
+
+const SectionHeader = ({ title, href, linkText }: { title: string; href?: string; linkText?: string }) => (
+  <div className="flex items-end justify-between gap-4 mb-4">
+    <h2 className="text-[22px] leading-7 font-extrabold text-mg-ink">{title}</h2>
+    {href && (
+      <a href={href} className="inline-flex items-center gap-1 text-sm font-bold text-mg-pitch hover:underline">
+        {linkText}
+        <ArrowRight className="h-4 w-4" aria-hidden="true" />
+      </a>
+    )}
+  </div>
+);
+
+const ResultRow = ({ m }: { m: HomeMatch }) => {
+  const h = m.home_score ?? 0;
+  const a = m.away_score ?? 0;
+  return (
+    <a href={`/championship/${m.championship_id}`} className="block px-5 py-3.5 border-t border-mg-line first:border-t-0 hover:bg-mg-surface-2">
+      <div className="flex justify-between gap-3 text-[13px] text-mg-muted mb-1.5">
+        <span className="truncate">{champLabel(m)}</span>
+        <span className="flex-shrink-0 capitalize">{shortDay(m.match_date)}</span>
+      </div>
+      <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3">
+        <span className={`text-[15px] leading-5 ${h > a ? 'font-extrabold' : 'font-semibold'} text-mg-ink`}>{m.home_team?.name}</span>
+        <span className="mg-num flex items-center gap-1 text-2xl font-extrabold text-mg-ink">
+          <span className={`min-w-[32px] text-center rounded-mg-sm py-0.5 ${h > a ? 'bg-mg-pitch-tint' : ''}`}>{h}</span>
+          <span className="text-mg-muted text-lg">–</span>
+          <span className={`min-w-[32px] text-center rounded-mg-sm py-0.5 ${a > h ? 'bg-mg-pitch-tint' : ''}`}>{a}</span>
+        </span>
+        <span className={`text-[15px] leading-5 text-right ${a > h ? 'font-extrabold' : 'font-semibold'} text-mg-ink`}>{m.away_team?.name}</span>
+      </div>
+    </a>
+  );
+};
+
+const UpcomingRow = ({ m }: { m: HomeMatch }) => (
+  <a href={`/championship/${m.championship_id}`} className="block px-5 py-3.5 border-t border-mg-line first:border-t-0 hover:bg-mg-surface-2">
+    <div className="flex justify-between gap-3 text-[13px] text-mg-muted mb-1.5">
+      <span className="truncate">{champLabel(m)}</span>
+      {m.venue && (
+        <span className="flex items-center gap-1 truncate">
+          <MapPin className="h-3.5 w-3.5 flex-shrink-0" aria-hidden="true" />
+          {m.venue}
+        </span>
+      )}
+    </div>
+    <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3">
+      <span className="text-[15px] leading-5 font-bold text-mg-ink">{m.home_team?.name}</span>
+      <span className="text-center">
+        <span className="block mg-num text-lg leading-5 font-bold uppercase text-mg-gold-ink">{shortDay(m.match_date)}</span>
+        <span className="block text-[13px] font-semibold text-mg-muted">{shortTime(m.match_date)}</span>
+      </span>
+      <span className="text-[15px] leading-5 text-right font-bold text-mg-ink">{m.away_team?.name}</span>
+    </div>
+  </a>
+);
+
+const EmptyPanel = ({ text }: { text: string }) => <p className="px-5 py-8 text-center text-sm text-mg-muted">{text}</p>;
+
 export const Home = () => {
   const { profile } = useAuth();
   const [championships, setChampionships] = useState<Championship[]>([]);
   const [leagues, setLeagues] = useState<League[]>([]);
+  const [results, setResults] = useState<HomeMatch[]>([]);
+  const [upcoming, setUpcoming] = useState<HomeMatch[]>([]);
   const [topScorers, setTopScorers] = useState<TopScorer[]>([]);
   const [playerProfile, setPlayerProfile] = useState<PlayerProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -36,23 +121,25 @@ export const Home = () => {
 
   const fetchData = async () => {
     try {
-      const { data: champData } = await supabase
-        .from('championships')
-        .select('*, admin:profiles!championships_admin_id_fkey(full_name)')
-        .eq('status', 'active')
-        .order('created_at', { ascending: false })
-        .limit(30);
+      const nowIso = new Date().toISOString();
+      const [{ data: champData }, { data: leagueData }, { data: resultData }, { data: upcomingData }] = await Promise.all([
+        supabase
+          .from('championships')
+          .select('*, admin:profiles!championships_admin_id_fkey(full_name)')
+          .eq('status', 'active')
+          .is('league_id', null)
+          .order('created_at', { ascending: false })
+          .limit(6),
+        supabase.from('leagues').select('*').eq('status', 'active').order('created_at', { ascending: false }).limit(4),
+        supabase.from('matches').select(MATCH_SELECT).eq('status', 'finished').lte('match_date', nowIso).order('match_date', { ascending: false }).limit(6),
+        supabase.from('matches').select(MATCH_SELECT).eq('status', 'scheduled').gte('match_date', nowIso).order('match_date', { ascending: true }).limit(6),
+      ]);
 
-      // Los campeonatos que son series de una liga se muestran dentro de la tarjeta de la liga
-      if (champData) setChampionships(champData.filter((c) => !c.league_id).slice(0, 6));
-
-      const { data: leagueData } = await supabase
-        .from('leagues')
-        .select('*')
-        .eq('status', 'active')
-        .order('created_at', { ascending: false })
-        .limit(4);
+      // Las series de una liga se muestran dentro de la tarjeta de la liga
+      setChampionships((champData || []) as Championship[]);
       setLeagues((leagueData || []) as League[]);
+      setResults((resultData || []) as unknown as HomeMatch[]);
+      setUpcoming((upcomingData || []) as unknown as HomeMatch[]);
 
       const { data: goalsData } = await supabase
         .from('match_events')
@@ -74,44 +161,28 @@ export const Home = () => {
 
       if (goalsData) {
         const scorersMap = new Map<string, TopScorer>();
-
         goalsData.forEach((goal: any) => {
-          if (goal.player_profiles && goal.player_id) {
-            const isOwnGoal = goal.additional_info?.type === 'own_goal';
-            if (!isOwnGoal) {
-              const existing = scorersMap.get(goal.player_id);
-              if (existing) {
-                existing.goals += 1;
-              } else {
-                scorersMap.set(goal.player_id, {
-                  player_id: goal.player_id,
-                  player_name: goal.player_profiles.full_name,
-                  team_name: goal.teams?.name || 'Sin equipo',
-                  goals: 1,
-                  assists: 0,
-                });
-              }
+          if (goal.player_profiles && goal.player_id && goal.additional_info?.type !== 'own_goal') {
+            const existing = scorersMap.get(goal.player_id);
+            if (existing) {
+              existing.goals += 1;
+            } else {
+              scorersMap.set(goal.player_id, {
+                player_id: goal.player_id,
+                player_name: goal.player_profiles.full_name,
+                team_name: goal.teams?.name || 'Sin equipo',
+                goals: 1,
+                assists: 0,
+              });
             }
           }
         });
-
-        const topScorersList = Array.from(scorersMap.values())
-          .sort((a, b) => b.goals - a.goals)
-          .slice(0, 5);
-
-        setTopScorers(topScorersList);
+        setTopScorers(Array.from(scorersMap.values()).sort((a, b) => b.goals - a.goals).slice(0, 5));
       }
 
       if (profile) {
-        const { data: profileData } = await supabase
-          .from('player_career_stats')
-          .select('*')
-          .eq('id', profile.id)
-          .maybeSingle();
-
-        if (profileData) {
-          setPlayerProfile(profileData);
-        }
+        const { data: profileData } = await supabase.from('player_career_stats').select('*').eq('id', profile.id).maybeSingle();
+        if (profileData) setPlayerProfile(profileData);
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -125,298 +196,162 @@ export const Home = () => {
     setShowCreateTeamModal(true);
   };
 
-  if (loading) {
-    return (
-      <Layout>
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
-        </div>
-      </Layout>
-    );
-  }
-
   return (
     <Layout>
-      <div className="space-y-12">
-        {profile && playerProfile && (
-          <section className="relative overflow-hidden bg-gradient-to-br from-emerald-600 via-emerald-700 to-teal-700 rounded-3xl shadow-2xl p-8">
-            <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDEzNGg3djFoLTd2LTF6bTE0IDBoN3YxaC03di0xem0xNCAwaDd2MWgtN3YtMXptMTQgMGg3djFoLTd2LTF6bTE0IDBoN3YxaC03di0xem0xNCAwaDd2MWgtN3YtMXptMTQgMGg3djFoLTd2LTF6bTE0IDBoN3YxaC03di0xem0xNCAwaDd2MWgtN3YtMXoiLz48L2c+PC9nPjwvc3ZnPg==')] opacity-30"></div>
-            <div className="relative flex flex-col md:flex-row gap-8 items-start md:items-center">
-              <div className="flex-shrink-0">
-                {playerProfile.photo_url ? (
-                  <img
-                    src={playerProfile.photo_url}
-                    alt={playerProfile.full_name}
-                    className="w-32 h-32 rounded-2xl object-cover border-4 border-white shadow-2xl ring-4 ring-emerald-400/50"
-                  />
-                ) : (
-                  <div className="w-32 h-32 rounded-2xl bg-white/20 flex items-center justify-center border-4 border-white shadow-2xl ring-4 ring-emerald-400/50">
-                    <User className="h-16 w-16 text-white" />
-                  </div>
-                )}
-              </div>
-
-              <div className="flex-1">
-                <h2 className="text-4xl font-black mb-2 text-white tracking-tight">{playerProfile.full_name}</h2>
-                <p className="text-emerald-100 mb-6 font-semibold text-lg">
-                  {playerProfile.position ? `${playerProfile.position} • ` : ''}
-                  {profile.role === 'system_admin' ? 'Administrador del Sistema' :
-                   profile.role === 'admin_de_campeonato' ? 'Administrador de Campeonato' : 'Jugador'}
-                </p>
-
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="bg-white/20 backdrop-blur-md rounded-xl p-4 border border-white/30">
-                    <p className="text-3xl font-black text-white mb-1">{playerProfile.matches_played}</p>
-                    <p className="text-sm text-emerald-100 font-semibold uppercase tracking-wide">Partidos</p>
-                  </div>
-                  <div className="bg-white/20 backdrop-blur-md rounded-xl p-4 border border-white/30">
-                    <p className="text-3xl font-black text-white mb-1">{playerProfile.total_goals}</p>
-                    <p className="text-sm text-emerald-100 font-semibold uppercase tracking-wide">Goles</p>
-                  </div>
-                  <div className="bg-white/20 backdrop-blur-md rounded-xl p-4 border border-white/30">
-                    <p className="text-3xl font-black text-white mb-1">{playerProfile.total_assists}</p>
-                    <p className="text-sm text-emerald-100 font-semibold uppercase tracking-wide">Asistencias</p>
-                  </div>
-                  <div className="bg-white/20 backdrop-blur-md rounded-xl p-4 border border-white/30">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Star className="h-6 w-6 text-yellow-300 fill-yellow-300" />
-                      <p className="text-3xl font-black text-white">{parseFloat(playerProfile.avg_rating).toFixed(1)}</p>
-                    </div>
-                    <p className="text-sm text-emerald-100 font-semibold uppercase tracking-wide">Valoración</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex-shrink-0">
-                <a
-                  href={`/player/${profile.id}`}
-                  className="px-8 py-4 bg-white text-emerald-700 rounded-xl font-bold hover:bg-emerald-50 transition-all shadow-xl hover:shadow-2xl hover:scale-105 inline-block"
-                >
-                  Ver Perfil Completo
-                </a>
-              </div>
-            </div>
-          </section>
-        )}
-
-        {!profile && (
-          <section className="relative overflow-hidden bg-gradient-to-br from-emerald-600 via-emerald-700 to-teal-700 rounded-3xl shadow-2xl p-12 md:p-16">
-            <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDE0NGg3djFoLTd2LTF6bTE0IDBoN3YxaC03di0xem0xNCAwaDd2MWgtN3YtMXptMTQgMGg3djFoLTd2LTF6bTE0IDBoN3YxaC03di0xem0xNCAwaDd2MWgtN3YtMXptMTQgMGg3djFoLTd2LTF6bTE0IDBoN3YxaC03di0xem0xNCAwaDd2MWgtN3YtMXoiLz48L2c+PC9nPjwvc3ZnPg==')] opacity-20"></div>
-            <div className="relative max-w-3xl">
-              <div className="inline-block p-3 bg-white/20 backdrop-blur-sm rounded-2xl mb-6">
-                <Trophy className="h-12 w-12 text-white" />
-              </div>
-              <h1 className="text-5xl md:text-6xl font-black mb-6 text-white tracking-tight leading-tight">
-                Bienvenido a Mediogol
-              </h1>
-              <p className="text-xl md:text-2xl text-emerald-50 mb-10 leading-relaxed font-medium">
-                La plataforma completa para gestionar tus campeonatos deportivos. Crea equipos, programa partidos y lleva estadísticas detalladas.
-              </p>
-              <div className="flex flex-wrap gap-4">
-                <a
-                  href="/search"
-                  className="px-8 py-4 bg-white text-emerald-700 rounded-xl font-bold hover:bg-emerald-50 transition-all shadow-xl hover:shadow-2xl hover:scale-105"
-                >
-                  Explorar Campeonatos
-                </a>
-                <a
-                  href="/register"
-                  className="px-8 py-4 bg-emerald-800/80 backdrop-blur-sm text-white rounded-xl font-bold hover:bg-emerald-900/80 transition-all border-2 border-white/30 shadow-xl hover:shadow-2xl hover:scale-105"
-                >
-                  Crear Cuenta
-                </a>
-              </div>
-            </div>
-          </section>
-        )}
-
-        <HomeSearch />
-
-        {leagues.length > 0 && (
-          <section>
-            <div className="flex items-center justify-between gap-4 mb-8">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-emerald-100 rounded-xl">
-                  <Layers className="h-8 w-8 text-emerald-600" />
-                </div>
-                <h2 className="text-4xl font-black text-gray-900">Ligas</h2>
-              </div>
-              <a href="/leagues" className="text-emerald-700 font-bold hover:underline">Ver todas</a>
-            </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {leagues.map((l) => (
-                <LeagueCard key={l.id} league={l} />
-              ))}
-            </div>
-          </section>
-        )}
-
-        <section>
-          <div className="flex items-center gap-4 mb-8">
-            <div className="p-3 bg-emerald-100 rounded-xl">
-              <Trophy className="h-8 w-8 text-emerald-600" />
-            </div>
-            <h2 className="text-4xl font-black text-gray-900">Campeonatos Activos</h2>
+      <div className="space-y-10 font-sans text-mg-ink">
+        {/* Portada: el buscador es lo primero */}
+        <section className="relative overflow-hidden rounded-mg-lg bg-mg-navy text-mg-on-navy">
+          <div className="mg-grass absolute inset-y-0 right-0 w-[38%] hidden md:block" aria-hidden="true">
+            <div className="absolute inset-y-0 left-0 w-24 bg-gradient-to-r from-mg-navy to-transparent" />
           </div>
-
-          {championships.length === 0 ? (
-            <div className="bg-white rounded-2xl shadow-xl p-16 text-center border border-gray-100">
-              <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <Trophy className="h-12 w-12 text-gray-400" />
-              </div>
-              <p className="text-gray-600 text-xl font-medium">No hay campeonatos activos en este momento.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {championships.map((championship) => (
-                <div
-                  key={championship.id}
-                  className="group bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all p-6 border-2 border-gray-100 hover:border-emerald-300 transform hover:-translate-y-1"
-                >
-                  <div className="flex items-start gap-4 mb-4">
-                    {championship.image_url && (
-                      <img
-                        src={championship.image_url}
-                        alt={championship.name}
-                        className="w-16 h-16 rounded-xl object-cover flex-shrink-0 border border-gray-200 shadow"
-                      />
-                    )}
-                    <div className="flex-1">
-                      <a href={`/championship/${championship.id}`}>
-                        <h3 className="text-2xl font-black text-gray-900 mb-3 group-hover:text-emerald-600 transition-colors">
-                          {championship.name}
-                        </h3>
-                      </a>
-                      <span className="inline-block px-4 py-1.5 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-full text-sm font-bold capitalize shadow-md">
-                        {championship.sport}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3 text-sm text-gray-700 mb-6">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-gray-100 rounded-lg">
-                        <MapPin className="h-4 w-4 text-gray-600" />
-                      </div>
-                      <span className="font-medium">{championship.venue}</span>
-                    </div>
-                    {championship.start_date && (
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-gray-100 rounded-lg">
-                          <Calendar className="h-4 w-4 text-gray-600" />
-                        </div>
-                        <span className="font-medium">{formatDateOnly(championship.start_date, { year: 'numeric', month: 'long', day: 'numeric' }, 'es-ES')}</span>
-                      </div>
-                    )}
-                    {championship.admin && (
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-gray-100 rounded-lg">
-                          <Users className="h-4 w-4 text-gray-600" />
-                        </div>
-                        <span className="font-medium">{championship.admin.full_name}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex gap-3">
-                    <a
-                      href={`/championship/${championship.id}`}
-                      className="flex-1 text-center px-5 py-3 text-emerald-600 font-bold text-sm hover:bg-emerald-50 rounded-xl transition-all border-2 border-emerald-600"
-                    >
-                      Ver detalles
-                    </a>
-                    {profile && (profile.role === 'system_admin' || championship.admin_id === profile.id) && (
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          handleCreateTeam(championship);
-                        }}
-                        className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-xl hover:from-emerald-600 hover:to-emerald-700 transition-all text-sm font-bold shadow-lg hover:shadow-xl"
-                      >
-                        <Plus className="h-4 w-4" />
-                        Crear Equipo
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div className="bg-white rounded-2xl shadow-xl p-8 border-t-4 border-yellow-500">
-            <div className="flex items-center gap-4 mb-8">
-              <div className="p-3 bg-yellow-100 rounded-xl">
-                <Target className="h-8 w-8 text-yellow-600" />
-              </div>
-              <h2 className="text-3xl font-black text-gray-900">Top Goleadores</h2>
-            </div>
-
-            {topScorers.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Target className="h-10 w-10 text-gray-400" />
-                </div>
-                <p className="text-gray-600 font-medium">No hay estadísticas disponibles aún.</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {topScorers.map((scorer, index) => (
-                  <div key={scorer.player_id} className="group flex items-center gap-4 p-5 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl hover:from-emerald-50 hover:to-emerald-100 transition-all border-2 border-gray-200 hover:border-emerald-300">
-                    <div className={`flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center font-black text-xl shadow-lg ${
-                      index === 0 ? 'bg-gradient-to-br from-yellow-400 to-yellow-500 text-yellow-900' :
-                      index === 1 ? 'bg-gradient-to-br from-gray-300 to-gray-400 text-gray-800' :
-                      index === 2 ? 'bg-gradient-to-br from-orange-400 to-orange-500 text-orange-900' :
-                      'bg-gradient-to-br from-gray-200 to-gray-300 text-gray-700'
-                    }`}>
-                      {index + 1}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-black text-gray-900 truncate text-lg group-hover:text-emerald-700 transition-colors">{scorer.player_name}</p>
-                      <p className="text-sm text-gray-600 truncate font-semibold">{scorer.team_name}</p>
-                    </div>
-                    <div className="flex flex-col items-end">
-                      <p className="text-3xl font-black text-emerald-600">{scorer.goals}</p>
-                      <p className="text-xs text-gray-500 font-bold uppercase">goles</p>
-                    </div>
-                  </div>
+          <div className="relative px-5 sm:px-8 md:px-10 py-10 md:py-12 md:max-w-[66%]">
+            <p className="mg-label text-mg-on-navy-muted mb-2">Ligas · Series · Campeonatos</p>
+            <h1 className="font-display font-extrabold uppercase text-[44px] leading-[42px] sm:text-[56px] sm:leading-[54px] tracking-[0.01em] mb-3">
+              Encuentra tu liga
+            </h1>
+            <p className="text-mg-on-navy-muted text-[15px] leading-[22px] mb-6 max-w-lg">
+              Tablas de posiciones, resultados y fechas de tu liga, tu serie o tu club.
+            </p>
+            <HomeSearch />
+            {leagues.length > 0 && (
+              <div className="mt-5 flex flex-wrap items-center gap-2">
+                <span className="text-[13px] font-semibold text-mg-on-navy-muted mr-1">Ligas activas:</span>
+                {leagues.map((l) => (
+                  <a
+                    key={l.id}
+                    href={`/league/${l.id}`}
+                    className="px-3.5 py-2 rounded-full border border-mg-on-navy-muted text-[13px] font-bold text-mg-on-navy hover:bg-mg-gold hover:text-mg-on-gold hover:border-mg-gold"
+                  >
+                    {l.name}
+                  </a>
                 ))}
               </div>
             )}
           </div>
-
-          <div className="bg-gradient-to-br from-blue-500 to-blue-700 rounded-2xl shadow-xl p-8 text-white">
-            <div className="flex items-center gap-4 mb-8">
-              <div className="p-3 bg-white/20 backdrop-blur-sm rounded-xl">
-                <TrendingUp className="h-8 w-8 text-white" />
-              </div>
-              <h2 className="text-3xl font-black">Estadísticas Generales</h2>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-white/20 backdrop-blur-md rounded-2xl p-6 text-center border border-white/30 hover:bg-white/30 transition-all">
-                <Trophy className="h-12 w-12 text-white mx-auto mb-3 opacity-90" />
-                <p className="text-4xl font-black mb-2">{championships.length}</p>
-                <p className="text-sm text-blue-100 font-bold uppercase tracking-wide">Campeonatos Activos</p>
-              </div>
-
-              <div className="bg-white/20 backdrop-blur-md rounded-2xl p-6 text-center border border-white/30 hover:bg-white/30 transition-all">
-                <Users className="h-12 w-12 text-white mx-auto mb-3 opacity-90" />
-                <p className="text-4xl font-black mb-2">{topScorers.length}</p>
-                <p className="text-sm text-blue-100 font-bold uppercase tracking-wide">Jugadores Destacados</p>
-              </div>
-
-              <div className="bg-white/20 backdrop-blur-md rounded-2xl p-6 text-center col-span-2 border border-white/30 hover:bg-white/30 transition-all">
-                <Target className="h-12 w-12 text-white mx-auto mb-3 opacity-90" />
-                <p className="text-5xl font-black mb-2">
-                  {topScorers.reduce((sum, scorer) => sum + scorer.goals, 0)}
-                </p>
-                <p className="text-sm text-blue-100 font-bold uppercase tracking-wide">Goles Totales</p>
-              </div>
-            </div>
-          </div>
         </section>
+
+        {profile && playerProfile && (
+          <section className="bg-mg-surface border border-mg-line rounded-mg-lg px-5 sm:px-6 py-5 flex flex-wrap items-center gap-5">
+            {playerProfile.photo_url ? (
+              <img src={playerProfile.photo_url} alt="" className="w-16 h-16 rounded-mg-md object-cover flex-shrink-0" />
+            ) : (
+              <div className="w-16 h-16 rounded-mg-md bg-mg-surface-2 flex items-center justify-center flex-shrink-0">
+                <User className="h-8 w-8 text-mg-muted" aria-hidden="true" />
+              </div>
+            )}
+            <div className="flex-1 min-w-[10rem]">
+              <p className="mg-label text-mg-muted">Tu ficha{playerProfile.position ? ` · ${playerProfile.position}` : ''}</p>
+              <p className="text-[17px] font-extrabold">{playerProfile.full_name}</p>
+            </div>
+            <dl className="flex gap-6 sm:gap-8">
+              {[
+                ['Partidos', playerProfile.matches_played],
+                ['Goles', playerProfile.total_goals],
+                ['Asist.', playerProfile.total_assists],
+                ['Nota', parseFloat(playerProfile.avg_rating || '0').toFixed(1)],
+              ].map(([k, v]) => (
+                <div key={k as string} className="text-center">
+                  <dd className="mg-num text-[28px] leading-8 font-extrabold">{v}</dd>
+                  <dt className="text-[12px] font-bold uppercase tracking-wide text-mg-muted">{k}</dt>
+                </div>
+              ))}
+            </dl>
+            <a href={`/player/${profile.id}`} className="inline-flex items-center min-h-[44px] px-4 rounded-mg-md border border-mg-line-strong font-extrabold text-sm hover:bg-mg-surface-2">
+              Ver mi perfil
+            </a>
+          </section>
+        )}
+
+        {loading ? (
+          <div className="flex items-center justify-center py-16">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-mg-pitch" aria-label="Cargando" />
+          </div>
+        ) : (
+          <>
+            <div className="grid gap-6 lg:grid-cols-2">
+              <section>
+                <SectionHeader title="Últimos resultados" />
+                <div className="bg-mg-surface border border-mg-line rounded-mg-lg overflow-hidden">
+                  {results.length === 0 ? <EmptyPanel text="Todavía no hay partidos jugados." /> : results.map((m) => <ResultRow key={m.id} m={m} />)}
+                </div>
+              </section>
+              <section>
+                <SectionHeader title="Próximos partidos" />
+                <div className="bg-mg-surface border border-mg-line rounded-mg-lg overflow-hidden">
+                  {upcoming.length === 0 ? <EmptyPanel text="No hay partidos programados por ahora." /> : upcoming.map((m) => <UpcomingRow key={m.id} m={m} />)}
+                </div>
+              </section>
+            </div>
+
+            {leagues.length > 0 && (
+              <section>
+                <SectionHeader title="Ligas" href="/leagues" linkText="Ver todas" />
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                  {leagues.map((l) => (
+                    <LeagueCard key={l.id} league={l} />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            <section>
+              <SectionHeader title="Campeonatos" href="/search" linkText="Ver todos" />
+              {championships.length === 0 ? (
+                <div className="bg-mg-surface border border-mg-line rounded-mg-lg">
+                  <EmptyPanel text="No hay campeonatos activos fuera de una liga." />
+                </div>
+              ) : (
+                <div className="grid gap-6 [grid-template-columns:repeat(auto-fill,minmax(280px,1fr))]">
+                  {championships.map((c) => (
+                    <article key={c.id} className="bg-mg-surface border border-mg-line rounded-mg-lg overflow-hidden flex flex-col hover:shadow-mg-card transition-shadow">
+                      <a href={`/championship/${c.id}`} className="relative h-24 mg-grass flex items-end p-3">
+                        {c.image_url && <img src={c.image_url} alt="" className="absolute inset-0 w-full h-full object-cover" />}
+                        <span className="relative inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-mg-surface text-mg-ink text-[11px] font-extrabold uppercase tracking-wide">
+                          <span className="w-2 h-2 rounded-full bg-mg-flame" aria-hidden="true" />
+                          En curso
+                        </span>
+                      </a>
+                      <div className="p-5 flex flex-col gap-1 flex-1">
+                        <p className="mg-label text-mg-muted capitalize">{[c.sport, c.venue].filter(Boolean).join(' · ')}</p>
+                        <a href={`/championship/${c.id}`} className="text-[17px] leading-6 font-extrabold hover:underline">{c.name}</a>
+                        {c.start_date && (
+                          <p className="text-[13px] text-mg-muted">Desde {formatDateOnly(c.start_date, { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                        )}
+                        {profile && (profile.role === 'admin_sistema' || c.admin_id === profile.id) && (
+                          <button
+                            onClick={() => handleCreateTeam(c)}
+                            className="mt-3 self-start inline-flex items-center gap-1.5 min-h-[40px] px-3.5 rounded-mg-md border border-mg-line-strong text-sm font-extrabold hover:bg-mg-surface-2"
+                          >
+                            <Plus className="h-4 w-4" aria-hidden="true" />
+                            Crear equipo
+                          </button>
+                        )}
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            {topScorers.length > 0 && (
+              <section className="max-w-2xl">
+                <SectionHeader title="Goleadores" />
+                <ol className="bg-mg-surface border border-mg-line rounded-mg-lg overflow-hidden">
+                  {topScorers.map((s, i) => (
+                    <li key={s.player_id} className={`flex items-center gap-4 px-5 py-3 border-t border-mg-line first:border-t-0 ${i === 0 ? 'bg-mg-pitch-tint' : ''}`}>
+                      <span className={`mg-num w-8 h-8 rounded-mg-sm flex items-center justify-center text-lg font-extrabold ${i === 0 ? 'bg-mg-gold text-mg-on-gold' : ''}`}>{i + 1}</span>
+                      <span className="flex-1 min-w-0">
+                        <span className="block font-extrabold truncate">{s.player_name}</span>
+                        <span className="block text-[13px] text-mg-muted truncate">{s.team_name}</span>
+                      </span>
+                      <span className="mg-num text-[28px] leading-8 font-extrabold">{s.goals}</span>
+                    </li>
+                  ))}
+                </ol>
+              </section>
+            )}
+          </>
+        )}
       </div>
 
       {showCreateTeamModal && selectedChampionship && (
