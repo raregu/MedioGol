@@ -5,7 +5,7 @@ import { X, Search, Users as UsersIcon, Plus, Mail } from 'lucide-react';
 import { Championship, Profile, BaseTeam } from '../types/database';
 
 interface CreateTeamModalProps {
-  championship: Championship;
+  championship: Pick<Championship, 'id' | 'name'>;
   onClose: () => void;
   onSuccess: () => void;
 }

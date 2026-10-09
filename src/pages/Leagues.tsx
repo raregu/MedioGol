@@ -4,28 +4,31 @@ import { LeagueCard } from '../components/LeagueCard';
 import { LeagueManageModal } from '../components/admin/LeagueManageModal';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { League } from '../types/database';
+import { LeagueSummary } from '../types/home';
 import { useDebounce } from '../utils/useDebounce';
 import { Layers, Plus, Search as SearchIcon } from 'lucide-react';
 
 const PAGE_SIZE = 12;
 
-/** Trae las ligas completas de una página de resultados de search_leagues, respetando el orden. */
+/**
+ * Una página de ligas: search_leagues da los ids (búsqueda + paginación en el servidor) y
+ * league_summaries trae en UNA consulta todo lo que muestran las tarjetas, en el mismo orden.
+ */
 const loadPage = async (q: string, offset: number) => {
   const { data, error } = await supabase.rpc('search_leagues', { p_query: q || null, p_limit: PAGE_SIZE, p_offset: offset });
   if (error) throw error;
   const page = (data || []) as { id: string; total_count: number }[];
-  if (!page.length) return { leagues: [] as League[], total: 0 };
-  const { data: full } = await supabase.from('leagues').select('*').in('id', page.map((p) => p.id));
-  const byId = new Map(((full || []) as League[]).map((l) => [l.id, l]));
-  return { leagues: page.map((p) => byId.get(p.id)).filter(Boolean) as League[], total: Number(page[0].total_count) || 0 };
+  if (!page.length) return { leagues: [] as LeagueSummary[], total: 0 };
+  const { data: summaries, error: sumError } = await supabase.rpc('league_summaries', { p_league_ids: page.map((p) => p.id) });
+  if (sumError) throw sumError;
+  return { leagues: (summaries || []) as LeagueSummary[], total: Number(page[0].total_count) || 0 };
 };
 
 export const Leagues = () => {
   const { profile } = useAuth();
   const [search, setSearch] = useState(new URLSearchParams(window.location.search).get('q') || '');
   const q = useDebounce(search.trim(), 300);
-  const [leagues, setLeagues] = useState<League[]>([]);
+  const [leagues, setLeagues] = useState<LeagueSummary[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
