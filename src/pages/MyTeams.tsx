@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Layout } from '../components/Layout';
 import { ProtectedRoute } from '../components/ProtectedRoute';
 import { useAuth } from '../contexts/AuthContext';
@@ -54,129 +54,171 @@ export const MyTeams = () => {
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [selectedBaseTeam, setSelectedBaseTeam] = useState<BaseTeam | null>(null);
   const [expandedBaseTeams, setExpandedBaseTeams] = useState<Set<string>>(new Set());
+  const [captainTotal, setCaptainTotal] = useState(0);
+  const [loadingMoreCaptain, setLoadingMoreCaptain] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const requestRef = useRef(0);
 
+  // Depende del id (no del objeto profile, que cambia en cada refresco de sesión y relanzaba toda la carga)
   useEffect(() => {
-    if (profile) {
+    if (profile?.id) {
       fetchMyTeams();
     }
-  }, [profile]);
+    return () => {
+      requestRef.current++; // invalida respuestas en vuelo al salir de la página
+    };
+  }, [profile?.id]);
 
+  const CAPTAIN_PAGE_SIZE = 20;
+  const CAPTAIN_TEAM_SELECT = '*, championship:championships!teams_championship_id_fkey(id, name, status), team_players(count)';
+
+  const playerCountOf = (team: any): number => team?.team_players?.[0]?.count ?? 0;
+
+  /**
+   * Carga "Mis Equipos" en ~8 consultas en paralelo, sin importar cuántos equipos tenga el usuario:
+   *  - los equipos que capitaneo van paginados (20) con el conteo de jugadores incluido;
+   *  - los jugadores de un equipo se piden recién al desplegarlo;
+   *  - desafíos e invitaciones enviadas vienen de RPC (no se mandan cientos de ids en la URL).
+   */
   const fetchMyTeams = async () => {
+    const uid = profile?.id;
+    if (!uid) return;
+    const requestId = ++requestRef.current;
+    setLoadError(null);
     try {
-      const { data: baseTeamsData } = await supabase
-        .from('base_teams')
-        .select('*')
-        .eq('owner_id', profile?.id)
-        .order('created_at', { ascending: false });
-
-      if (baseTeamsData) setBaseTeams(baseTeamsData);
-
-      const { data: teamsData } = await supabase
-        .from('teams')
-        .select('*, championship:championships!teams_championship_id_fkey(*)')
-        .eq('captain_id', profile?.id);
-
-      if (teamsData) {
-        setTeams(teamsData);
-
-        for (const team of teamsData) {
-          const { data: teamPlayersData } = await supabase
+      const [baseTeamsRes, teamsRes, captainInvRes, challengesRes, sentInvRes, receivedRes, basePlayerRes, memberTeamsRes] =
+        await Promise.all([
+          supabase.from('base_teams').select('*').eq('owner_id', uid).order('created_at', { ascending: false }),
+          supabase
+            .from('teams')
+            .select(CAPTAIN_TEAM_SELECT, { count: 'exact' })
+            .eq('captain_id', uid)
+            .order('created_at', { ascending: false })
+            .range(0, CAPTAIN_PAGE_SIZE - 1),
+          supabase
+            .from('messages')
+            .select('*, team:teams!messages_team_id_fkey(id, name, championship:championships!teams_championship_id_fkey(name))')
+            .eq('to_user_id', uid)
+            .eq('message_type', 'captain_invitation')
+            .eq('action_required', true)
+            .eq('action_taken', false)
+            .order('created_at', { ascending: false })
+            .limit(50),
+          supabase.rpc('my_team_challenges', { p_limit: 50 }),
+          supabase.rpc('my_sent_invitations', { p_limit: 50 }),
+          supabase
+            .from('invitations')
+            .select('*, team:teams!invitations_team_id_fkey(name, championship:championships!teams_championship_id_fkey(name)), invited_by_user:profiles!invitations_invited_by_user_id_fkey(full_name)')
+            .eq('invited_user_id', uid)
+            .order('created_at', { ascending: false })
+            .limit(50),
+          // Equipos base donde soy jugador
+          supabase
+            .from('base_team_players')
+            .select('id, role, joined_at, base_team_id, base_teams(id, name, logo_url, owner_id, owner:profiles!base_teams_owner_id_fkey(full_name))')
+            .eq('player_id', uid)
+            .eq('status', 'active')
+            .limit(100),
+          // Equipos de campeonato donde soy jugador (una sola consulta con el equipo embebido)
+          supabase
             .from('team_players')
-            .select('player_id, is_active, player_profiles(id, full_name, position, jersey_number, photo_url)')
-            .eq('team_id', team.id);
+            .select('team:teams(id, name, logo_url, stamina, captain_id, championship:championships!teams_championship_id_fkey(name, status), captain:profiles!teams_captain_id_fkey(full_name))')
+            .eq('player_id', uid)
+            .eq('is_active', true)
+            .limit(100),
+        ]);
 
-          if (teamPlayersData) {
-            const playersData = teamPlayersData
-              .filter(tp => tp.player_profiles !== null)
-              .map(tp => ({
-                id: tp.player_profiles.id,
-                name: tp.player_profiles.full_name,
-                position: tp.player_profiles.position,
-                jersey_number: tp.player_profiles.jersey_number,
-                photo_url: tp.player_profiles.photo_url,
-                is_active: tp.is_active,
-                team_id: team.id,
-              }));
-            setPlayers((prev) => ({ ...prev, [team.id]: playersData as any }));
-          }
-        }
-      }
+      if (requestId !== requestRef.current) return; // llegó una carga más nueva
 
-      const { data: captainInvitationsData } = await supabase
-        .from('messages')
-        .select('*, team:teams!messages_team_id_fkey(id, name, championship:championships!teams_championship_id_fkey(name))')
-        .eq('to_user_id', profile?.id)
-        .eq('message_type', 'captain_invitation')
-        .eq('action_required', true)
-        .eq('action_taken', false)
-        .order('created_at', { ascending: false });
+      const firstError = [baseTeamsRes, teamsRes, captainInvRes, challengesRes, sentInvRes, receivedRes, basePlayerRes, memberTeamsRes].find(
+        (r) => r.error
+      )?.error;
+      if (firstError) throw firstError;
 
-      if (captainInvitationsData) setCaptainInvitations(captainInvitationsData as any);
+      const baseTeamsData = (baseTeamsRes.data || []) as BaseTeam[];
+      setBaseTeams(baseTeamsData);
+      setTeams((teamsRes.data || []) as unknown as Team[]);
+      setCaptainTotal(teamsRes.count ?? 0);
+      setPlayers({});
+      setCaptainInvitations((captainInvRes.data || []) as any);
+      setChallenges((challengesRes.data || []) as Challenge[]);
+      setInvitations((sentInvRes.data || []) as Invitation[]);
+      setReceivedInvitations((receivedRes.data || []) as Invitation[]);
 
-      const { data: challengesData } = await supabase
-        .from('challenges')
-        .select('*, challenger_team:teams!challenges_challenger_team_id_fkey(name), challenged_team:teams!challenges_challenged_team_id_fkey(name)')
-        .or(`challenger_team_id.in.(${teamsData?.map((t) => t.id).join(',')}),challenged_team_id.in.(${teamsData?.map((t) => t.id).join(',')})`)
-        .order('created_at', { ascending: false });
-
-      if (challengesData) setChallenges(challengesData);
-
-      const { data: invitationsData } = await supabase
-        .from('invitations')
-        .select('*, team:teams!invitations_team_id_fkey(name), invited_user:profiles!invitations_invited_user_id_fkey(full_name)')
-        .in('team_id', teamsData?.map((t) => t.id) || [])
-        .order('created_at', { ascending: false });
-
-      if (invitationsData) setInvitations(invitationsData);
-
-      const { data: receivedInvitationsData } = await supabase
-        .from('invitations')
-        .select('*, team:teams!invitations_team_id_fkey(name, championship:championships!teams_championship_id_fkey(name)), invited_by_user:profiles!invitations_invited_by_user_id_fkey(full_name)')
-        .eq('invited_user_id', profile?.id)
-        .order('created_at', { ascending: false });
-
-      if (receivedInvitationsData) setReceivedInvitations(receivedInvitationsData);
-
-      // Equipos base donde soy jugador (no dueño)
-      const { data: basePlayerData } = await supabase
-        .from('base_team_players')
-        .select('id, role, joined_at, base_team_id, base_teams(id, name, logo_url, owner_id, owner:profiles!base_teams_owner_id_fkey(full_name))')
-        .eq('player_id', profile?.id)
-        .eq('status', 'active');
-
-      const ownedIds = new Set(baseTeamsData?.map((t) => t.id) || []);
-      const filtered = (basePlayerData || []).filter(
-        (m: any) => !ownedIds.has(m.base_team_id)
+      const ownedIds = new Set(baseTeamsData.map((t) => t.id));
+      setMemberBaseTeams((basePlayerRes.data || []).filter((m: any) => !ownedIds.has(m.base_team_id)));
+      setMemberChampTeams(
+        (memberTeamsRes.data || [])
+          .map((r: any) => (Array.isArray(r.team) ? r.team[0] : r.team))
+          .filter((t: any) => t && t.captain_id !== uid)
       );
-      setMemberBaseTeams(filtered);
 
-      // Equipos campeonato donde soy jugador (no capitán)
-      const captainIds = new Set(teamsData?.map((t) => t.id) || []);
-      const { data: playerTeamIds } = await supabase
-        .from('team_players')
-        .select('team_id')
-        .eq('player_id', profile?.id)
-        .eq('is_active', true);
-
-      const nonCaptainIds = (playerTeamIds || [])
-        .map((r: any) => r.team_id)
-        .filter((id: string) => !captainIds.has(id));
-
-      if (nonCaptainIds.length > 0) {
-        const { data: memberTeamsData } = await supabase
-          .from('teams')
-          .select('id, name, logo_url, stamina, championship:championships!teams_championship_id_fkey(name, status), captain:profiles!teams_captain_id_fkey(full_name)')
-          .in('id', nonCaptainIds);
-        setMemberChampTeams(memberTeamsData || []);
-      } else {
-        setMemberChampTeams([]);
-      }
-
+      // Si había equipos desplegados, se recargan sus jugadores
+      expandedCaptainTeams.forEach((teamId) => loadTeamPlayers(teamId, true));
     } catch (error) {
+      if (requestId !== requestRef.current) return;
       console.error('Error fetching my teams:', error);
+      setLoadError('No pudimos cargar tus equipos. Revisa tu conexión e intenta de nuevo.');
     } finally {
-      setLoading(false);
+      if (requestId === requestRef.current) setLoading(false);
     }
+  };
+
+  const loadMoreCaptainTeams = async () => {
+    if (!profile?.id) return;
+    setLoadingMoreCaptain(true);
+    try {
+      const { data, error } = await supabase
+        .from('teams')
+        .select(CAPTAIN_TEAM_SELECT)
+        .eq('captain_id', profile.id)
+        .order('created_at', { ascending: false })
+        .range(teams.length, teams.length + CAPTAIN_PAGE_SIZE - 1);
+      if (error) throw error;
+      setTeams((prev) => [...prev, ...((data || []) as unknown as Team[])]);
+    } catch (error) {
+      console.error('Error loading more teams:', error);
+    } finally {
+      setLoadingMoreCaptain(false);
+    }
+  };
+
+  /** Jugadores de un equipo: se piden solo al desplegarlo. */
+  const loadTeamPlayers = async (teamId: string, force = false) => {
+    if (!force && players[teamId]) return;
+    const { data, error } = await supabase
+      .from('team_players')
+      .select('player_id, is_active, player_profiles(id, full_name, position, jersey_number, photo_url)')
+      .eq('team_id', teamId)
+      .limit(200);
+    if (error) {
+      console.error('Error fetching team players:', error);
+      return;
+    }
+    const playersData = (data || [])
+      .map((tp: any) => ({ ...tp, pp: Array.isArray(tp.player_profiles) ? tp.player_profiles[0] : tp.player_profiles }))
+      .filter((tp: any) => tp.pp)
+      .map((tp: any) => ({
+        id: tp.pp.id,
+        name: tp.pp.full_name,
+        position: tp.pp.position,
+        jersey_number: tp.pp.jersey_number,
+        photo_url: tp.pp.photo_url,
+        is_active: tp.is_active,
+        team_id: teamId,
+      }));
+    setPlayers((prev) => ({ ...prev, [teamId]: playersData as any }));
+  };
+
+  const toggleCaptainTeam = (teamId: string) => {
+    const opening = !expandedCaptainTeams.has(teamId);
+    setExpandedCaptainTeams((prev) => {
+      const s = new Set(prev);
+      if (opening) s.add(teamId);
+      else s.delete(teamId);
+      return s;
+    });
+    if (opening) loadTeamPlayers(teamId);
   };
 
   const respondToChallenge = async (challengeId: string, accept: boolean) => {
@@ -323,6 +365,25 @@ export const MyTeams = () => {
       <Layout>
         <div className="flex items-center justify-center min-h-[60vh]">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+        </div>
+      </Layout>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <Layout>
+        <div role="alert" className="max-w-xl mx-auto mt-12 bg-red-50 border border-red-200 rounded-2xl p-6 text-center">
+          <p className="font-semibold text-gray-900 mb-4">{loadError}</p>
+          <button
+            onClick={() => {
+              setLoading(true);
+              fetchMyTeams();
+            }}
+            className="px-5 py-2.5 rounded-xl bg-emerald-600 text-white font-bold text-sm hover:bg-emerald-700"
+          >
+            Reintentar
+          </button>
         </div>
       </Layout>
     );
@@ -594,7 +655,7 @@ export const MyTeams = () => {
             <div className="space-y-4">
               <div className="flex items-center gap-3">
                 <Trophy className="h-6 w-6 text-emerald-600" />
-                <h2 className="text-2xl font-bold text-gray-900">Soy Capitán ({teams.length})</h2>
+                <h2 className="text-2xl font-bold text-gray-900">Soy Capitán ({captainTotal})</h2>
               </div>
 
               <div className="space-y-3">
@@ -624,13 +685,11 @@ export const MyTeams = () => {
                           <p className="text-sm text-gray-500 truncate">{team.championship?.name}</p>
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
-                          <span className="text-sm text-gray-500">{players[team.id]?.length || 0} jug.</span>
+                          <span className="text-sm text-gray-500">{playerCountOf(team)} jug.</span>
                           <button
-                            onClick={() => setExpandedCaptainTeams((prev) => {
-                              const s = new Set(prev);
-                              s.has(team.id) ? s.delete(team.id) : s.add(team.id);
-                              return s;
-                            })}
+                            onClick={() => toggleCaptainTeam(team.id)}
+                            aria-expanded={expandedCaptainTeams.has(team.id)}
+                            aria-label={expandedCaptainTeams.has(team.id) ? 'Ocultar jugadores' : 'Ver jugadores'}
                             className="p-1.5 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
                           >
                             {expandedCaptainTeams.has(team.id) ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
@@ -662,7 +721,9 @@ export const MyTeams = () => {
                                 </button>
                               </div>
                             </div>
-                            {players[team.id]?.length === 0 ? (
+                            {!players[team.id] ? (
+                              <p className="text-sm text-gray-500 text-center py-4">Cargando jugadores…</p>
+                            ) : players[team.id].length === 0 ? (
                               <p className="text-sm text-gray-500 text-center py-4">No hay jugadores en el equipo aún.</p>
                             ) : (
                               <div className="space-y-2">
@@ -700,6 +761,19 @@ export const MyTeams = () => {
                 ))}
               </div>
 
+              {teams.length < captainTotal && (
+                <div className="flex flex-col items-center gap-1">
+                  <button
+                    onClick={loadMoreCaptainTeams}
+                    disabled={loadingMoreCaptain}
+                    className="px-5 py-2.5 rounded-xl border-2 border-emerald-600 text-emerald-700 font-bold text-sm hover:bg-emerald-50 disabled:opacity-50"
+                  >
+                    {loadingMoreCaptain ? 'Cargando…' : 'Ver más equipos'}
+                  </button>
+                  <span className="text-xs text-gray-500">Mostrando {teams.length} de {captainTotal}</span>
+                </div>
+              )}
+
               {/* Desafíos compactos */}
               {challenges.length > 0 && (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
@@ -709,7 +783,7 @@ export const MyTeams = () => {
                   </h3>
                   <div className="space-y-2">
                     {challenges.map((challenge) => {
-                      const isChallenged = teams.some((t) => t.id === challenge.challenged_team_id);
+                      const isChallenged = !!(challenge as any).i_am_challenged;
                       return (
                         <div key={challenge.id} className="bg-gray-50 rounded-lg p-3 flex items-center justify-between gap-3">
                           <div className="flex-1 min-w-0">
