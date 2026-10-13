@@ -33,6 +33,7 @@ import {
   Shield,
   Trophy,
   Users,
+  Printer,
 } from 'lucide-react';
 
 type Tab = 'general' | 'series' | 'fechas' | 'clubes';
@@ -418,6 +419,17 @@ export const LeagueDetail = () => {
                   >
                     <ChevronRight className="h-5 w-5" />
                   </button>
+                  {canManage && round != null && league && (
+                    <a
+                      href={`/papeletas?league=${league.id}&round=${round}`}
+                      target="_blank"
+                      rel="noopener"
+                      className="ml-auto inline-flex items-center gap-2 h-11 px-4 rounded-lg bg-emerald-950 text-white font-bold text-sm hover:bg-emerald-900"
+                    >
+                      <Printer className="h-4 w-4" aria-hidden="true" />
+                      Descargar papeletas de esta fecha
+                    </a>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">

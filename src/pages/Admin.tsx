@@ -4,7 +4,7 @@ import { ProtectedRoute } from '../components/ProtectedRoute';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { Championship, Team, Match, Sanction, Profile } from '../types/database';
-import { Trophy, Users, Calendar, AlertCircle, Plus, UserCog, CreditCard as Edit, MapPin, Trash2, Phone, Image, FileSpreadsheet } from 'lucide-react';
+import { Trophy, Users, Calendar, AlertCircle, Plus, UserCog, CreditCard as Edit, MapPin, Trash2, Phone, Image, FileSpreadsheet, Printer, Camera } from 'lucide-react';
 import { CreateChampionshipModal } from '../components/admin/CreateChampionshipModal';
 import { EditChampionshipModal } from '../components/admin/EditChampionshipModal';
 import { CreateTeamModal } from '../components/CreateTeamModal';
@@ -280,6 +280,10 @@ export const Admin = () => {
       }
     }
   };
+
+  // Fechas para imprimir papeletas; por defecto, la primera con partidos pendientes
+  const matchRounds = Array.from(new Set(matches.map((m) => m.round).filter((r) => r != null))).sort((a, b) => a - b);
+  const nextRound = matches.filter((m) => m.status !== 'finished').map((m) => m.round).sort((a, b) => a - b)[0] ?? matchRounds[0];
 
   if (loading) {
     return (
@@ -964,7 +968,28 @@ export const Admin = () => {
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
                         <h2 className="text-xl font-bold text-gray-900">Partidos ({matches.length})</h2>
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap gap-2 justify-end">
+                          {matchRounds.length > 0 && (
+                            <form
+                              className="flex items-center gap-2"
+                              onSubmit={(e) => {
+                                e.preventDefault();
+                                const round = new FormData(e.currentTarget).get('round');
+                                window.open(`/papeletas?championship=${selectedChampionship}&round=${round}`, '_blank', 'noopener');
+                              }}
+                            >
+                              <label htmlFor="sheet-round" className="sr-only">Fecha de las papeletas</label>
+                              <select id="sheet-round" name="round" defaultValue={nextRound} className="h-10 px-2 border border-gray-300 rounded-lg text-sm">
+                                {matchRounds.map((r) => (
+                                  <option key={r} value={r}>Fecha {r}</option>
+                                ))}
+                              </select>
+                              <button type="submit" className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-700 transition-colors">
+                                <Printer className="h-5 w-5" />
+                                Descargar papeletas
+                              </button>
+                            </form>
+                          )}
                           <button
                             onClick={() => setShowUploadSchedule(true)}
                             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -1025,9 +1050,25 @@ export const Admin = () => {
                                   <p className="font-semibold text-gray-900">{match.away_team?.name}</p>
                                 </div>
                               </div>
-                              <div className="flex items-center justify-between text-sm text-gray-600">
+                              <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-gray-600">
                                 <span>{new Date(match.match_date).toLocaleString()}</span>
-                                <span>Fecha {match.round}</span>
+                                <div className="flex items-center gap-2">
+                                  <span>Fecha {match.round}</span>
+                                  <a
+                                    href={`/papeletas?match=${match.id}`}
+                                    target="_blank"
+                                    rel="noopener"
+                                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 text-xs font-semibold"
+                                  >
+                                    <Printer className="h-3.5 w-3.5" aria-hidden="true" /> Papeleta
+                                  </a>
+                                  <a
+                                    href={`/papeleta/${match.id}`}
+                                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 text-xs font-semibold"
+                                  >
+                                    <Camera className="h-3.5 w-3.5" aria-hidden="true" /> Subir papeleta
+                                  </a>
+                                </div>
                               </div>
                             </div>
                           ))}
