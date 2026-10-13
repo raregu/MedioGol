@@ -90,7 +90,7 @@ export const PlayerManagement = ({ baseTeamId, baseTeamName }: PlayerManagementP
     const requesterIds = requests.map((r) => r.requester_id);
     const { data: profiles } = await supabase
       .from('profiles')
-      .select('id, full_name, avatar_url, rut')
+      .select('id, full_name, avatar_url')
       .in('id', requesterIds);
 
     const profileMap: Record<string, any> = {};
@@ -406,9 +406,6 @@ export const PlayerManagement = ({ baseTeamId, baseTeamName }: PlayerManagementP
                   )}
                   <div>
                     <p className="font-medium text-gray-900 text-sm">{req.requester?.full_name || 'Jugador'}</p>
-                    {req.requester?.rut && (
-                      <p className="text-xs text-gray-500">RUT: {req.requester.rut}</p>
-                    )}
                     <p className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
                       <Clock className="h-3 w-3" />
                       {new Date(req.created_at).toLocaleDateString('es-CL')}

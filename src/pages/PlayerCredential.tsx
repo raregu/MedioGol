@@ -19,25 +19,19 @@ export const PlayerCredentialPage = () => {
 
   const fetchCredential = async () => {
     try {
-      const { data, error } = await supabase
-        .from('player_profiles')
-        .select(`
-          id,
-          full_name,
-          rut,
-          date_of_birth,
-          photo_url,
-          profile_photo,
-          position,
-          estado_verificacion,
-          foto_bloqueada,
-          qr_token,
-          fecha_primer_partido
-        `)
-        .eq('id', profile?.id)
-        .single();
+      const [{ data: pub, error }, { data: priv, error: privError }] = await Promise.all([
+        supabase
+          .from('player_profiles')
+          .select('id, full_name, photo_url, profile_photo, position, estado_verificacion, foto_bloqueada, fecha_primer_partido')
+          .eq('id', profile?.id)
+          .single(),
+        // RUT, nacimiento y token del QR viven en una tabla privada (solo el titular la lee)
+        supabase.from('player_private').select('rut, date_of_birth, qr_token').eq('player_id', profile?.id).maybeSingle(),
+      ]);
 
       if (error) throw error;
+      if (privError) throw privError;
+      const data = { ...pub, rut: priv?.rut ?? null, date_of_birth: priv?.date_of_birth ?? null, qr_token: priv?.qr_token ?? null };
 
       const { data: teamData } = await supabase
         .from('base_team_players')

@@ -160,11 +160,10 @@ export const ValidatePlayer = () => {
       // Extraer token si viene como URL completa
       const rawToken = token.includes('/validate/') ? token.split('/validate/')[1] : token.trim();
 
+      // Datos personales solo vía RPC: verifica el rol del personal y deja registro de la consulta
       const { data, error: fetchError } = await supabase
-        .from('player_profiles')
-        .select('id, full_name, rut, date_of_birth, photo_url, profile_photo, position, estado_verificacion, foto_bloqueada, qr_token, fecha_primer_partido')
-        .eq('qr_token', rawToken)
-        .single();
+        .rpc('staff_find_player', { p_qr_token: rawToken.trim(), p_rut: null })
+        .maybeSingle();
 
       if (fetchError || !data) { setError('Jugador no encontrado. Verifica el código QR.'); return; }
       await buildAndSetPlayer(data);
@@ -183,11 +182,10 @@ export const ValidatePlayer = () => {
     setPlayerData(null);
     setValidationResult(null);
     try {
+      // Búsqueda exacta por RUT (el servidor normaliza puntos y guión)
       const { data, error: fetchError } = await supabase
-        .from('player_profiles')
-        .select('id, full_name, rut, date_of_birth, photo_url, profile_photo, position, estado_verificacion, foto_bloqueada, qr_token, fecha_primer_partido')
-        .ilike('rut', `%${rut.replace(/\./g, '').replace(/-/g, '').trim()}%`)
-        .single();
+        .rpc('staff_find_player', { p_qr_token: null, p_rut: rut })
+        .maybeSingle();
 
       if (fetchError || !data) { setError('Jugador no encontrado con ese RUT.'); return; }
       await buildAndSetPlayer(data);

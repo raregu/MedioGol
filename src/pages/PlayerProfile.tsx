@@ -70,7 +70,7 @@ export const PlayerProfile = () => {
   useEffect(() => {
     if (!playerId) return;
     fetchPlayerData();
-  }, [playerId]);
+  }, [playerId, user?.id]);
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -133,7 +133,19 @@ export const PlayerProfile = () => {
           .order('joined_at', { ascending: false }),
       ]);
 
-      if (profileRes.data) setPlayer(profileRes.data);
+      if (profileRes.data) {
+        // RUT y fecha de nacimiento son privados: solo el titular los recibe (RLS de player_private)
+        let privateData: { rut: string | null; date_of_birth: string | null } | null = null;
+        if (user?.id === playerId) {
+          const { data: priv } = await supabase
+            .from('player_private')
+            .select('rut, date_of_birth')
+            .eq('player_id', playerId)
+            .maybeSingle();
+          privateData = priv;
+        }
+        setPlayer({ ...profileRes.data, rut: privateData?.rut ?? undefined, date_of_birth: privateData?.date_of_birth ?? null });
+      }
       if (statsRes.data) setStats(statsRes.data);
       if (reviewsRes.data) setReviews(reviewsRes.data as any);
       if (teamsRes.data) {
@@ -470,17 +482,15 @@ export const PlayerProfile = () => {
                         Enviar Mensaje
                       </button>
                     ) : null}
-                    {profile && ['system_admin', 'admin_de_campeonato', 'encargado_turno'].includes(profile.role) && user?.id !== playerId && (
+                    {profile && ['admin_sistema', 'admin_campeonato', 'encargado_turno'].includes(profile.role) && user?.id !== playerId && (
                       <div className="mt-4 p-4 bg-white/20 rounded-xl border border-white/30">
                         <p className="text-white text-xs font-bold uppercase tracking-wider mb-3">Control de Verificación</p>
                         <div className="flex flex-col gap-2">
                           <button
                             onClick={async () => {
                               try {
-                                await supabase
-                                  .from('player_profiles')
-                                  .update({ estado_verificacion: 'verificado' })
-                                  .eq('id', playerId);
+                                const { error } = await supabase.rpc('staff_set_verification', { p_player_id: playerId, p_estado: 'verificado' });
+                                if (error) throw error;
                                 fetchPlayerData();
                               } catch (error) {
                                 console.error('Error:', error);
@@ -494,10 +504,8 @@ export const PlayerProfile = () => {
                           <button
                             onClick={async () => {
                               try {
-                                await supabase
-                                  .from('player_profiles')
-                                  .update({ estado_verificacion: 'rechazado' })
-                                  .eq('id', playerId);
+                                const { error } = await supabase.rpc('staff_set_verification', { p_player_id: playerId, p_estado: 'rechazado' });
+                                if (error) throw error;
                                 fetchPlayerData();
                               } catch (error) {
                                 console.error('Error:', error);
@@ -572,13 +580,23 @@ export const PlayerProfile = () => {
                     .update({
                       position: formData.get('position') as string || null,
                       jersey_number: formData.get('jersey_number') ? parseInt(formData.get('jersey_number') as string) : null,
-                      date_of_birth: formData.get('date_of_birth') as string || null,
                       bio: formData.get('bio') as string || null,
-                      rut: formData.get('rut') ? (formData.get('rut') as string).replace(/\./g, '').replace(/-/g, '').trim() : null,
                     })
                     .eq('id', playerId);
 
                   if (profileError) throw profileError;
+
+                  // RUT y fecha de nacimiento van a la tabla privada (solo los ve el titular y el personal de cancha)
+                  const rutRaw = (formData.get('rut') as string | null)?.trim() || '';
+                  const { error: privateError } = await supabase.from('player_private').upsert(
+                    {
+                      player_id: playerId,
+                      rut: rutRaw ? rutRaw.replace(/[^0-9kK]/g, '').toUpperCase() : null,
+                      date_of_birth: (formData.get('date_of_birth') as string) || null,
+                    },
+                    { onConflict: 'player_id' }
+                  );
+                  if (privateError) throw privateError;
 
                   // Update full name in profiles table
                   const fullName = formData.get('full_name') as string;
@@ -667,7 +685,9 @@ export const PlayerProfile = () => {
                   placeholder="123456789 (sin puntos ni guión)"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                 />
-                <p className="text-xs text-gray-400 mt-1">Se guarda automáticamente sin puntos ni guión</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Privado: solo lo ves tú y el personal que valida jugadores en cancha. Se usa únicamente para verificar tu identidad.
+                </p>
               </div>
 
               <div>
