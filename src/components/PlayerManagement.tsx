@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { RegisterPlayerModal } from './RegisterPlayerModal';
+import { PlayerSearchCombobox, PlayerOption } from './PlayerSearchCombobox';
 import { Users, Plus, Trash2, Edit2, Mail, UserX, CheckCircle, XCircle, UserPlus, Bell, Clock } from 'lucide-react';
 
 interface BaseTeamPlayer {
@@ -45,14 +46,17 @@ export const PlayerManagement = ({ baseTeamId, baseTeamName }: PlayerManagementP
   const [showInvitePlayer, setShowInvitePlayer] = useState(false);
   const [showRegisterPlayer, setShowRegisterPlayer] = useState(false);
   const [email, setEmail] = useState('');
-  const [selectedPlayerId, setSelectedPlayerId] = useState('');
-  const [availablePlayers, setAvailablePlayers] = useState<any[]>([]);
+  const [selectedPlayer, setSelectedPlayer] = useState<PlayerOption | null>(null);
+  const [addingPlayer, setAddingPlayer] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
   const [editingPlayer, setEditingPlayer] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({
     role: 'player',
     jersey_number: '',
     position: '',
   });
+
+  const currentPlayerIds = useMemo(() => new Set(players.map((p) => p.player_id)), [players]);
 
   useEffect(() => {
     fetchData();
@@ -61,7 +65,7 @@ export const PlayerManagement = ({ baseTeamId, baseTeamName }: PlayerManagementP
   const fetchData = async () => {
     try {
       setLoading(true);
-      await Promise.all([fetchPlayers(), fetchInvitations(), fetchAvailablePlayers(), fetchJoinRequests()]);
+      await Promise.all([fetchPlayers(), fetchInvitations(), fetchJoinRequests()]);
     } finally {
       setLoading(false);
     }
@@ -136,46 +140,39 @@ export const PlayerManagement = ({ baseTeamId, baseTeamName }: PlayerManagementP
     setInvitations(data || []);
   };
 
-  const fetchAvailablePlayers = async () => {
-    const { data, error } = await supabase
-      .from('player_profiles')
-      .select('id, full_name, position, photo_url')
-      .order('full_name', { ascending: true });
-
-    if (error) {
-      console.error('Error fetching available players:', error);
-      return;
-    }
-
-    setAvailablePlayers(data || []);
-  };
-
   const handleAddPlayer = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!selectedPlayerId) {
-      alert('Por favor selecciona un jugador');
+    if (!selectedPlayer) {
+      setAddError('Busca y selecciona un jugador.');
       return;
     }
-
+    setAddingPlayer(true);
+    setAddError(null);
     try {
       const { error } = await supabase.from('base_team_players').insert({
         base_team_id: baseTeamId,
-        player_id: selectedPlayerId,
+        player_id: selectedPlayer.id,
         role: 'player',
         status: 'active',
       });
-
-      if (error) throw error;
-
-      alert('Jugador agregado exitosamente');
-      setShowAddPlayer(false);
-      setSelectedPlayerId('');
+      if (error) {
+        if (error.code === '23505') throw new Error(`${selectedPlayer.full_name} ya está en el equipo.`);
+        throw error;
+      }
+      closeAddPlayer();
       fetchData();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error adding player:', error);
-      alert(error.message || 'Error al agregar jugador');
+      setAddError((error as { message?: string })?.message || 'No pudimos agregar al jugador.');
+    } finally {
+      setAddingPlayer(false);
     }
+  };
+
+  const closeAddPlayer = () => {
+    setShowAddPlayer(false);
+    setSelectedPlayer(null);
+    setAddError(null);
   };
 
   const handleInvitePlayer = async (e: React.FormEvent) => {
@@ -616,39 +613,34 @@ export const PlayerManagement = ({ baseTeamId, baseTeamName }: PlayerManagementP
           <div className="bg-white rounded-xl p-6 max-w-md w-full">
             <h3 className="text-xl font-bold text-gray-900 mb-4">Agregar Jugador</h3>
             <form onSubmit={handleAddPlayer} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Seleccionar Jugador
-                </label>
-                <select
-                  value={selectedPlayerId}
-                  onChange={(e) => setSelectedPlayerId(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                  required
-                >
-                  <option value="">Selecciona un jugador...</option>
-                  {availablePlayers
-                    .filter((p) => !players.some((bp) => bp.player_id === p.id))
-                    .map((player) => (
-                      <option key={player.id} value={player.id}>
-                        {player.full_name} {player.position ? `- ${player.position}` : ''}
-                      </option>
-                    ))}
-                </select>
-              </div>
+              <PlayerSearchCombobox
+                baseTeamId={baseTeamId}
+                value={selectedPlayer}
+                onChange={(p) => {
+                  setSelectedPlayer(p);
+                  setAddError(null);
+                }}
+                excludeIds={currentPlayerIds}
+              />
+              <p className="text-xs text-gray-500">
+                Solo aparecen jugadores con cuenta en MedioGol. Si no lo encuentras, usa “Invitar” para enviarle una invitación por correo.
+              </p>
+              {addError && (
+                <p role="alert" className="text-sm text-red-600">
+                  {addError}
+                </p>
+              )}
               <div className="flex gap-3">
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium"
+                  disabled={!selectedPlayer || addingPlayer}
+                  className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium disabled:opacity-50"
                 >
-                  Agregar
+                  {addingPlayer ? 'Agregando…' : 'Agregar'}
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    setShowAddPlayer(false);
-                    setSelectedPlayerId('');
-                  }}
+                  onClick={closeAddPlayer}
                   className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium"
                 >
                   Cancelar

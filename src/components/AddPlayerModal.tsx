@@ -65,11 +65,12 @@ export const AddPlayerModal = ({ team, onClose, onSuccess }: AddPlayerModalProps
 
       const { data } = await supabase
         .from('base_team_players')
-        .select('user_id')
-        .in('base_team_id', baseTeamIds);
+        .select('player_id')
+        .in('base_team_id', baseTeamIds)
+        .eq('status', 'active');
 
       if (data) {
-        setAvailablePlayerIds(new Set(data.map(p => p.user_id)));
+        setAvailablePlayerIds(new Set(data.map(p => p.player_id)));
       }
     } catch (err) {
       console.error('Error loading available players:', err);
