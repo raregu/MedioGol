@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 import { BaseTeam, TeamRegistration, Match } from '../types/database';
 
 interface TeamHistoryModalProps {
-  team: BaseTeam;
+  team: Pick<BaseTeam, 'id' | 'name' | 'logo_url' | 'description'>;
   onClose: () => void;
 }
 
