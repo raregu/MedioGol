@@ -1,11 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Layout } from '../components/Layout';
 import { ProtectedRoute } from '../components/ProtectedRoute';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { ChampionshipPayments } from './Payments';
+import { AdminHub, HubLeague } from '../components/admin/AdminHub';
 import { Championship, Team, Match, Sanction, Profile } from '../types/database';
-import { Trophy, Users, Calendar, AlertCircle, Plus, UserCog, CreditCard as Edit, MapPin, Trash2, Phone, Image, FileSpreadsheet, Printer, Camera } from 'lucide-react';
+import { Trophy, Users, Calendar, AlertCircle, Plus, UserCog, CreditCard as Edit, MapPin, Trash2, Phone, Image, FileSpreadsheet, Printer, Camera, Eye, Wallet } from 'lucide-react';
 import { CreateChampionshipModal } from '../components/admin/CreateChampionshipModal';
 import { EditChampionshipModal } from '../components/admin/EditChampionshipModal';
 import { CreateTeamModal } from '../components/CreateTeamModal';
@@ -45,6 +46,8 @@ export const Admin = () => {
 
   const [championships, setChampionships] = useState<Championship[]>([]);
   const [selectedChampionship, setSelectedChampionship] = useState<string | null>(null);
+  const [leagues, setLeagues] = useState<HubLeague[]>([]);
+  const manageRef = useRef<HTMLDivElement | null>(null);
   const [teams, setTeams] = useState<Team[]>([]);
   const [baseTeams, setBaseTeams] = useState<any[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
@@ -89,20 +92,43 @@ export const Admin = () => {
 
   const fetchChampionships = async () => {
     try {
+      // Ligas que administro (admin del sistema: todas)
+      let leaguesQuery = supabase.from('leagues').select('id, name, logo_url').order('name').limit(100);
+      if (!isAdmin && profile) leaguesQuery = leaguesQuery.eq('admin_id', profile.id);
+      const { data: managedLeagues } = await leaguesQuery;
+      const managed = (managedLeagues || []) as { id: string; name: string; logo_url: string | null }[];
+      const managedIds = managed.map((l) => l.id);
+
+      // Campeonatos que administro directamente o que son series de mis ligas
       let query = supabase
         .from('championships')
         .select('*, admin:profiles!championships_admin_id_fkey(full_name)');
-
       if (!isAdmin && profile?.role === 'admin_campeonato') {
-        query = query.eq('admin_id', profile.id);
+        query = managedIds.length
+          ? query.or(`admin_id.eq.${profile.id},league_id.in.(${managedIds.join(',')})`)
+          : query.eq('admin_id', profile.id);
       }
-
-      const { data } = await query.order('created_at', { ascending: false });
+      const { data } = await query.order('created_at', { ascending: false }).limit(300);
 
       if (data) {
         setChampionships(data);
-        if (data.length > 0 && !selectedChampionship) {
-          setSelectedChampionship(data[0].id);
+        // Ligas de mis campeonatos que no administro: se agrupan igual, sin acciones de liga
+        const extraIds = [...new Set(data.map((c) => c.league_id).filter((id): id is string => !!id && !managedIds.includes(id)))];
+        let extra: { id: string; name: string; logo_url: string | null }[] = [];
+        if (extraIds.length) {
+          const { data: extraData } = await supabase.from('leagues').select('id, name, logo_url').in('id', extraIds);
+          extra = extraData || [];
+        }
+        setLeagues([
+          ...managed.map((l) => ({ ...l, canManage: true })),
+          ...extra.map((l) => ({ ...l, canManage: false })),
+        ]);
+
+        // Serie inicial: la de la URL (?championship=) o la única que haya
+        const wanted = new URLSearchParams(window.location.search).get('championship');
+        if (!selectedChampionship) {
+          if (wanted && data.some((c) => c.id === wanted)) setSelectedChampionship(wanted);
+          else if (data.length === 1) setSelectedChampionship(data[0].id);
         }
       }
     } catch (error) {
@@ -110,6 +136,13 @@ export const Admin = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const selectChampionship = (id: string) => {
+    setSelectedChampionship(id);
+    setActiveTab('championships');
+    window.history.replaceState(null, '', `/admin?championship=${id}`);
+    requestAnimationFrame(() => manageRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   };
 
   const fetchChampionshipData = async (championshipId: string) => {
@@ -711,22 +744,34 @@ export const Admin = () => {
             </div>
           ) : (
             <div className="space-y-6">
-              <div className="bg-white rounded-xl shadow-md p-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Seleccionar Campeonato
-                </label>
-                <select
-                  value={selectedChampionship || ''}
-                  onChange={(e) => setSelectedChampionship(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                >
-                  {championships.map((championship) => (
-                    <option key={championship.id} value={championship.id}>
-                      {championship.name} - {championship.sport}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <AdminHub leagues={leagues} championships={championships} selectedId={selectedChampionship} onSelect={selectChampionship} />
+
+              {!selectedChampionship ? (
+                <p role="status" className="bg-mg-surface border border-dashed border-mg-line-strong rounded-mg-lg px-5 py-8 text-center text-mg-muted font-sans">
+                  Elige una serie o un campeonato para administrar sus equipos, partidos, sanciones y pagos.
+                </p>
+              ) : (
+              <div ref={manageRef} className="space-y-4 scroll-mt-4">
+              {(() => {
+                const champ = championships.find((c) => c.id === selectedChampionship);
+                const league = leagues.find((l) => l.id === champ?.league_id);
+                if (!champ) return null;
+                return (
+                  <header className="bg-mg-navy text-mg-on-navy rounded-mg-lg px-5 py-4 flex flex-wrap items-center gap-3 font-sans">
+                    <div className="flex-1 min-w-[12rem]">
+                      <p className="mg-label text-mg-on-navy-muted">{league ? `${league.name} · Serie` : 'Campeonato'}</p>
+                      <h2 className="font-display text-[28px] leading-8 font-extrabold uppercase">{league && champ.series_name ? champ.series_name : champ.name}</h2>
+                    </div>
+                    <a href={`/championship/${champ.id}`} className="inline-flex items-center gap-1.5 min-h-[44px] px-3 rounded-mg-md bg-white/10 border border-white/20 text-sm font-bold hover:bg-white/20">
+                      <Eye className="h-4 w-4" aria-hidden="true" /> Ver página pública
+                    </a>
+                    <button type="button" onClick={() => setActiveTab('payments')} className="inline-flex items-center gap-1.5 min-h-[44px] px-3 rounded-mg-md bg-white text-mg-navy text-sm font-bold hover:bg-mg-pitch-tint">
+                      <Wallet className="h-4 w-4" aria-hidden="true" /> Pagos
+                    </button>
+                  </header>
+                );
+              })()}
+
 
               <div className="bg-white rounded-xl shadow-md">
                 <div className="border-b">
@@ -739,7 +784,7 @@ export const Admin = () => {
                           : 'text-gray-600 hover:text-gray-900'
                       }`}
                     >
-                      Campeonatos
+                      Resumen
                     </button>
                     <button
                       onClick={() => setActiveTab('teams')}
@@ -1337,6 +1382,8 @@ export const Admin = () => {
                   )}
                 </div>
               </div>
+              </div>
+              )}
             </div>
           )}
         </div>
