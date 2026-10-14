@@ -41,15 +41,22 @@ export const MatchEventsModal = ({
   onClose,
 }: MatchEventsModalProps) => {
   const [events, setEvents] = useState<MatchEvent[]>([]);
+  const [notes, setNotes] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchEvents();
+    let active = true;
+    setLoading(true);
+    fetchEvents(() => active);
+    return () => {
+      active = false;
+    };
   }, [matchId]);
 
-  const fetchEvents = async () => {
+  const fetchEvents = async (isActive: () => boolean) => {
     try {
-      const { data, error } = await supabase
+      const notesReq = supabase.from('matches').select('notes').eq('id', matchId).maybeSingle();
+      const eventsReq = supabase
         .from('match_events')
         .select(`
           *,
@@ -64,15 +71,29 @@ export const MatchEventsModal = ({
         `)
         .eq('match_id', matchId)
         .order('minute', { ascending: true })
-        .order('created_at', { ascending: true });
+        .order('created_at', { ascending: true })
+        .limit(200);
 
+      const [{ data, error }, notesRes] = await Promise.all([eventsReq, notesReq]);
+      if (!isActive()) return;
       if (error) throw error;
       setEvents(data || []);
+      setNotes(notesRes.data?.notes?.trim() || null);
     } catch (err) {
       console.error('Error fetching events:', err);
     } finally {
-      setLoading(false);
+      if (isActive()) setLoading(false);
     }
+  };
+
+  /** Eventos cargados desde la papeleta no tienen minuto y pueden traer solo nombre/N°. */
+  const minuteLabel = (event: MatchEvent) => (event.additional_info?.minute_unknown ? '' : `${event.minute}'`);
+  const playerLabel = (event: MatchEvent) => {
+    const name = event.player_profiles?.full_name || event.additional_info?.player_name;
+    const jersey = event.additional_info?.jersey;
+    if (name) return jersey ? `#${jersey} ${name}` : name;
+    if (event.additional_info?.type === 'own_goal') return 'Autogol';
+    return jersey ? `Jugador #${jersey}` : 'Jugador sin registrar';
   };
 
   const getEventIcon = (eventType: string) => {
@@ -162,6 +183,13 @@ export const MatchEventsModal = ({
             </div>
           </div>
 
+          {!loading && notes && (
+            <section aria-labelledby="match-notes-title" className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4">
+              <h3 id="match-notes-title" className="text-sm font-bold text-gray-900 mb-1">Observaciones del árbitro</h3>
+              <p className="text-sm text-gray-800 whitespace-pre-line break-words">{notes}</p>
+            </section>
+          )}
+
           {loading ? (
             <div className="flex justify-center items-center py-12">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -189,9 +217,9 @@ export const MatchEventsModal = ({
                         <span className="text-2xl">{getEventIcon(event.event_type)}</span>
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="font-bold text-blue-600 text-lg">{event.minute}'</span>
+                            {minuteLabel(event) && <span className="font-bold text-blue-600 text-lg">{minuteLabel(event)}</span>}
                             <span className="font-semibold text-gray-900">
-                              {event.player_profiles?.full_name || 'Jugador desconocido'}
+                              {playerLabel(event)}
                             </span>
                             {event.additional_info?.type && event.additional_info.type !== 'normal' && (
                               <span className="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded-full">
@@ -224,11 +252,11 @@ export const MatchEventsModal = ({
                         <span className="text-2xl">{getEventIcon(event.event_type)}</span>
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="font-bold text-blue-600 text-lg">{event.minute}'</span>
+                            {minuteLabel(event) && <span className="font-bold text-blue-600 text-lg">{minuteLabel(event)}</span>}
                             <span className="font-semibold text-gray-900">{getEventLabel(event.event_type)}</span>
                           </div>
                           <p className="text-sm font-medium text-gray-900">
-                            {event.player_profiles?.full_name || 'Jugador desconocido'}
+                            {playerLabel(event)}
                           </p>
                           <p className="text-sm text-gray-600">{event.teams?.name}</p>
                           {event.additional_info?.reason && (
@@ -258,11 +286,11 @@ export const MatchEventsModal = ({
                         <span className="text-2xl">{getEventIcon(event.event_type)}</span>
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="font-bold text-blue-600 text-lg">{event.minute}'</span>
+                            {minuteLabel(event) && <span className="font-bold text-blue-600 text-lg">{minuteLabel(event)}</span>}
                             <span className="font-semibold text-gray-900">{getEventLabel(event.event_type)}</span>
                           </div>
                           <p className="text-sm font-medium text-gray-900">
-                            {event.player_profiles?.full_name || 'Jugador desconocido'}
+                            {playerLabel(event)}
                           </p>
                           <p className="text-sm text-gray-600">{event.teams?.name}</p>
                         </div>
@@ -287,7 +315,7 @@ export const MatchEventsModal = ({
                         <span className="text-2xl">{getEventIcon(event.event_type)}</span>
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="font-bold text-blue-600 text-lg">{event.minute}'</span>
+                            {minuteLabel(event) && <span className="font-bold text-blue-600 text-lg">{minuteLabel(event)}</span>}
                             <span className="font-semibold text-gray-900">{getEventLabel(event.event_type)}</span>
                           </div>
                           {event.player_profiles && (
@@ -311,10 +339,10 @@ export const MatchEventsModal = ({
                       key={event.id}
                       className="flex items-center gap-3 text-sm text-gray-600"
                     >
-                      <span className="font-bold text-blue-600 w-12">{event.minute}'</span>
+                      <span className="font-bold text-blue-600 w-12">{minuteLabel(event)}</span>
                       <span className="text-lg">{getEventIcon(event.event_type)}</span>
                       <span className="flex-1">
-                        {getEventLabel(event.event_type)} - {event.player_profiles?.full_name || 'Jugador desconocido'} ({event.teams?.name})
+                        {getEventLabel(event.event_type)} - {playerLabel(event)} ({event.teams?.name})
                       </span>
                     </div>
                   ))}

@@ -12,6 +12,8 @@ import {
   Side,
   buildReview,
   goalsFromRows,
+  NOTES_MAX,
+  notesWarning,
   prepareImage,
   toPayload,
 } from '../utils/matchSheet';
@@ -157,7 +159,8 @@ export const MatchSheetUpload = () => {
   const totals = useMemo(() => (review ? { home: goalsFromRows(review, 'home'), away: goalsFromRows(review, 'away') } : null), [review]);
   const scoreValid = !!review && /^\d{1,2}$/.test(review.homeScore) && /^\d{1,2}$/.test(review.awayScore);
   const scoreMismatch = !!review && !!totals && scoreValid && (totals.home !== Number(review.homeScore) || totals.away !== Number(review.awayScore));
-  const pending = review ? review.rows.filter((r) => r.flagged).length + (review.scoreFlagged ? 1 : 0) : 0;
+  const notesAlert = review ? notesWarning(review) : null;
+  const pending = review ? review.rows.filter((r) => r.flagged).length + (review.scoreFlagged ? 1 : 0) + (notesAlert ? 1 : 0) : 0;
 
   const confirm = async () => {
     if (!review || !sheetId || !scoreValid) return;
@@ -434,10 +437,27 @@ export const MatchSheetUpload = () => {
                 </div>
               ))}
 
-              <label className="block bg-mg-surface border border-mg-line rounded-mg-lg p-4">
-                <span className="mg-label text-mg-muted">Observaciones leídas</span>
-                <textarea value={review.notes} onChange={(e) => setReview({ ...review, notes: e.target.value })} rows={2} className="mt-2 w-full p-2 border border-mg-line-strong rounded-mg-md" />
-              </label>
+              <div className={`rounded-mg-lg border p-4 ${notesAlert ? 'bg-[#fff4d6] border-[#e0b84a]' : 'bg-mg-surface border-mg-line'}`}>
+                <label htmlFor="sheet-notes" className="mg-label text-mg-muted">Observaciones del árbitro</label>
+                <textarea
+                  id="sheet-notes"
+                  value={review.notes}
+                  onChange={(e) => setReview({ ...review, notes: e.target.value.slice(0, NOTES_MAX) })}
+                  maxLength={NOTES_MAX}
+                  rows={3}
+                  placeholder="Sin observaciones"
+                  aria-describedby="sheet-notes-help"
+                  className="mt-2 w-full p-2 border border-mg-line-strong rounded-mg-md bg-mg-surface"
+                />
+                {notesAlert && (
+                  <p className="mt-2 text-sm font-bold flex items-start gap-2">
+                    <AlertTriangle className="h-4 w-4 flex-none mt-0.5" aria-hidden="true" /> {notesAlert}
+                  </p>
+                )}
+                <p id="sheet-notes-help" className="mt-1 text-xs text-mg-muted">
+                  Se publica en el detalle del partido. No incluyas RUT, teléfonos ni otros datos personales.
+                </p>
+              </div>
 
               <div className="flex flex-wrap items-center gap-3">
                 <p className="flex-1 min-w-[16rem] text-sm text-mg-muted">
