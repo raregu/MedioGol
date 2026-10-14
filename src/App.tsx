@@ -14,6 +14,8 @@ import { PlayerCredentialPage } from './pages/PlayerCredential';
 import { ValidatePlayer } from './pages/ValidatePlayer';
 import { Leagues } from './pages/Leagues';
 import { LeagueDetail } from './pages/LeagueDetail';
+import { MatchSheets } from './pages/MatchSheets';
+import { MatchSheetUpload } from './pages/MatchSheetUpload';
 
 function App() {
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
@@ -51,6 +53,8 @@ function App() {
   if (currentPath === '/teams') return <Teams />;
   if (currentPath === '/credential') return <PlayerCredentialPage />;
   if (currentPath.startsWith('/validate')) return <ValidatePlayer />;
+  if (currentPath === '/papeletas') return <MatchSheets />;
+  if (currentPath.startsWith('/papeleta/')) return <MatchSheetUpload />;
 
   return <Home />;
 }
