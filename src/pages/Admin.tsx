@@ -3,6 +3,7 @@ import { Layout } from '../components/Layout';
 import { ProtectedRoute } from '../components/ProtectedRoute';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import { ChampionshipPayments } from './Payments';
 import { Championship, Team, Match, Sanction, Profile } from '../types/database';
 import { Trophy, Users, Calendar, AlertCircle, Plus, UserCog, CreditCard as Edit, MapPin, Trash2, Phone, Image, FileSpreadsheet, Printer, Camera } from 'lucide-react';
 import { CreateChampionshipModal } from '../components/admin/CreateChampionshipModal';
@@ -51,7 +52,7 @@ export const Admin = () => {
   const [users, setUsers] = useState<Profile[]>([]);
   const [sportsComplexes, setSportsComplexes] = useState<SportsComplex[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'championships' | 'teams' | 'matches' | 'sanctions' | 'users' | 'complexes' | 'base_teams' | 'advertisements'>(
+  const [activeTab, setActiveTab] = useState<'championships' | 'teams' | 'matches' | 'sanctions' | 'payments' | 'users' | 'complexes' | 'base_teams' | 'advertisements'>(
     isAdmin ? 'users' : 'championships'
   );
   const [showCreateChampionship, setShowCreateChampionship] = useState(false);
@@ -770,6 +771,16 @@ export const Admin = () => {
                     >
                       Sanciones
                     </button>
+                    <button
+                      onClick={() => setActiveTab('payments')}
+                      className={`px-6 py-4 font-medium transition-colors whitespace-nowrap ${
+                        activeTab === 'payments'
+                          ? 'text-emerald-600 border-b-2 border-emerald-600'
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      Pagos
+                    </button>
                     {isAdmin && (
                       <>
                         <button
@@ -798,6 +809,12 @@ export const Admin = () => {
                 </div>
 
                 <div className="p-6">
+                  {activeTab === 'payments' && selectedChampionship && (
+                    <div className="font-sans text-mg-ink">
+                      <ChampionshipPayments key={selectedChampionship} id={selectedChampionship} />
+                    </div>
+                  )}
+
                   {activeTab === 'championships' && (
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">

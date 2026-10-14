@@ -19,7 +19,8 @@ const Message = ({ title, text, onRetry }: { title: string; text?: string; onRet
   </div>
 );
 
-const ChampionshipPayments = ({ id }: { id: string }) => {
+/** Panel de pagos de un campeonato (también se usa en Administrar → Pagos). */
+export const ChampionshipPayments = ({ id }: { id: string }) => {
   const { status, championship, canManage, balances, settings, reload } = useChampionshipPayments(id);
   if (status === 'loading') return <p role="status" className="py-16 text-center text-mg-muted">Cargando pagos…</p>;
   if (status === 'denied') return <Message title="No tienes acceso a los pagos de este campeonato." text="Solo lo ven sus administradores y encargados de turno." />;
