@@ -4,6 +4,7 @@ import { AlertTriangle, Camera, CheckCircle2, Loader2, Plus, Trash2, Upload } fr
 import { Layout } from '../components/Layout';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import { formatCLP } from '../utils/money';
 import {
   AiSheetResult,
   MatchSheetContext,
@@ -60,6 +61,8 @@ export const MatchSheetUpload = () => {
   const [error, setError] = useState<string | null>(null);
   const [sheetId, setSheetId] = useState<string | null>(null);
   const [review, setReview] = useState<ReviewState | null>(null);
+  // Morosos: solo aviso para el personal (no bloquea la papeleta)
+  const [overdue, setOverdue] = useState<{ team_id: string; overdue: number }[]>([]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -80,6 +83,12 @@ export const MatchSheetUpload = () => {
         }
         setCtx(c);
         setStep('capture');
+        supabase
+          .rpc('team_overdue', { p_team_ids: [c.home.team_id, c.away.team_id] })
+          .abortSignal(controller.signal)
+          .then(({ data: od }) => {
+            if (!controller.signal.aborted) setOverdue(((od || []) as { team_id: string; overdue: number }[]).filter((o) => o.overdue > 0));
+          });
       });
     return () => controller.abort();
   }, [profile?.id, authLoading, matchId]);
@@ -221,6 +230,21 @@ export const MatchSheetUpload = () => {
           <p role="alert" className="bg-mg-danger-tint text-mg-danger rounded-mg-md px-4 py-3 font-semibold">
             {error}
           </p>
+        )}
+
+        {ctx && overdue.length > 0 && step !== 'done' && (
+          <div role="status" className="flex gap-3 items-start bg-mg-danger-tint border border-[#f3c4bf] rounded-mg-md px-4 py-3 text-sm">
+            <AlertTriangle className="h-5 w-5 flex-none text-mg-danger" aria-hidden="true" />
+            <div>
+              {overdue.map((o) => (
+                <p key={o.team_id}>
+                  <strong>{o.team_id === ctx.home.team_id ? ctx.home.name : ctx.away.name}</strong> tiene {formatCLP(o.overdue)} vencidos.{' '}
+                  <a href={`/pagos?team=${o.team_id}`} className="font-bold underline">Ver estado de cuenta</a>
+                </p>
+              ))}
+              <p className="text-mg-muted">Solo es un aviso: puedes subir y confirmar la papeleta igual.</p>
+            </div>
+          </div>
         )}
 
         {ctx && (step === 'capture' || step === 'reading') && (

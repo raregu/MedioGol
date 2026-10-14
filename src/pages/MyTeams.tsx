@@ -10,7 +10,7 @@ import CreateBaseTeamModal from '../components/CreateBaseTeamModal';
 import EditBaseTeamModal from '../components/EditBaseTeamModal';
 import { PlayerManagement } from '../components/PlayerManagement';
 import { JoinTeamSection } from '../components/JoinTeamSection';
-import { Users, Plus, Send, UserPlus, Trophy, AlertCircle, Bell, CheckCircle, XCircle, Shield, Eye, EyeOff, ChevronDown, ChevronUp, Edit, Search } from 'lucide-react';
+import { Users, Plus, Send, UserPlus, Trophy, AlertCircle, Bell, CheckCircle, XCircle, Shield, Eye, EyeOff, ChevronDown, ChevronUp, Edit, Search, Wallet } from 'lucide-react';
 
 interface CaptainInvitation {
   id: string;
@@ -686,6 +686,16 @@ export const MyTeams = () => {
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
                           <span className="text-sm text-gray-500">{playerCountOf(team)} jug.</span>
+                          {team.captain_confirmed && (
+                            <a
+                              href={`/pagos?team=${team.id}`}
+                              className="inline-flex items-center gap-1 min-h-[40px] px-2 text-sm font-bold text-mg-pitch hover:bg-mg-pitch-tint rounded-lg"
+                            >
+                              <Wallet className="h-4 w-4" aria-hidden="true" />
+                              <span className="hidden sm:inline">Estado de cuenta</span>
+                              <span className="sm:hidden">Pagos</span>
+                            </a>
+                          )}
                           <button
                             onClick={() => toggleCaptainTeam(team.id)}
                             aria-expanded={expandedCaptainTeams.has(team.id)}
