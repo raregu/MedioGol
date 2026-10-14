@@ -176,7 +176,11 @@ export const MatchSheetUpload = () => {
   };
 
   const discard = async () => {
-    if (sheetId) await supabase.rpc('discard_match_sheet', { p_sheet_id: sheetId });
+    if (sheetId) {
+      // Una papeleta descartada no es respaldo: se borran sus fotos (si falla, la limpieza automática las quita).
+      const { data: paths } = await supabase.rpc('discard_match_sheet', { p_sheet_id: sheetId });
+      if (Array.isArray(paths) && paths.length) await supabase.storage.from('match-sheets').remove(paths as string[]);
+    }
     setSheetId(null);
     setReview(null);
     photos.forEach((p) => URL.revokeObjectURL(p.url));

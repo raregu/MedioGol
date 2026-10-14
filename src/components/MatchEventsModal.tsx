@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { X, Calendar, Users } from 'lucide-react';
+import { X, Calendar, Users, FileImage, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
 
 interface MatchEvent {
   id: string;
@@ -43,6 +44,48 @@ export const MatchEventsModal = ({
   const [events, setEvents] = useState<MatchEvent[]>([]);
   const [notes, setNotes] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+  // Papeleta confirmada (solo la ve el personal del partido: RLS de match_sheets)
+  const [sheetPaths, setSheetPaths] = useState<string[]>([]);
+  const [sheetUrls, setSheetUrls] = useState<string[] | null>(null);
+  const [sheetLoading, setSheetLoading] = useState(false);
+  const [sheetError, setSheetError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setSheetPaths([]);
+    setSheetUrls(null);
+    setSheetError(null);
+    if (!user) return;
+    let active = true;
+    supabase
+      .from('match_sheets')
+      .select('image_paths')
+      .eq('match_id', matchId)
+      .eq('status', 'applied')
+      .order('applied_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (active && data?.image_paths?.length) setSheetPaths(data.image_paths);
+      });
+    return () => {
+      active = false;
+    };
+  }, [matchId, user?.id]);
+
+  /** Enlaces temporales (5 min): la foto tiene nombres y firmas, no queda pública. */
+  const openSheet = async () => {
+    setSheetLoading(true);
+    setSheetError(null);
+    const { data, error } = await supabase.storage.from('match-sheets').createSignedUrls(sheetPaths, 300);
+    setSheetLoading(false);
+    const urls = (data || []).map((d) => d.signedUrl).filter(Boolean) as string[];
+    if (error || !urls.length) {
+      setSheetError('No se pudo abrir la papeleta. Intenta de nuevo.');
+      return;
+    }
+    setSheetUrls(urls);
+  };
 
   useEffect(() => {
     let active = true;
@@ -182,6 +225,36 @@ export const MatchEventsModal = ({
               </div>
             </div>
           </div>
+
+          {sheetPaths.length > 0 && (
+            <section aria-labelledby="match-sheet-title" className="mb-6 rounded-lg border border-gray-200 p-4">
+              <div className="flex flex-wrap items-center gap-3">
+                <h3 id="match-sheet-title" className="flex-1 text-sm font-bold text-gray-900">Papeleta original (respaldo)</h3>
+                {!sheetUrls && (
+                  <button
+                    type="button"
+                    onClick={openSheet}
+                    disabled={sheetLoading}
+                    className="inline-flex items-center gap-2 min-h-[44px] px-4 rounded-lg border border-gray-300 bg-white text-sm font-bold hover:bg-gray-50 disabled:opacity-60"
+                  >
+                    {sheetLoading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <FileImage className="h-4 w-4" aria-hidden="true" />}
+                    Ver papeleta original
+                  </button>
+                )}
+              </div>
+              {sheetError && <p role="alert" className="mt-2 text-sm text-red-700">{sheetError}</p>}
+              {sheetUrls && (
+                <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {sheetUrls.map((url, i) => (
+                    <a key={url} href={url} target="_blank" rel="noreferrer" className="block">
+                      <img src={url} alt={`Papeleta del partido, foto ${i + 1} (abrir en grande)`} className="w-full rounded-lg border border-gray-200" />
+                    </a>
+                  ))}
+                  <p className="sm:col-span-3 text-xs text-gray-500">Solo la ve el personal del partido. El enlace vence en 5 minutos.</p>
+                </div>
+              )}
+            </section>
+          )}
 
           {!loading && notes && (
             <section aria-labelledby="match-notes-title" className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4">

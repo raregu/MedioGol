@@ -5,6 +5,9 @@
 //   ANTHROPIC_API_KEY   clave de la API de Anthropic (obligatoria)
 //   MATCH_SHEET_MODEL   opcional, por defecto claude-sonnet-5-5
 //   MATCH_SHEET_DAILY_LIMIT opcional, papeletas por usuario cada 24 h (por defecto 60)
+//
+// Limpieza: en cada llamada borra en segundo plano (lotes chicos) las fotos de papeletas
+// NO confirmadas con más de 30 días. Las fotos de papeletas confirmadas se conservan siempre.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
 
@@ -49,28 +52,29 @@ const teamSchema = {
       items: {
         type: "object",
         properties: {
-          fila: { type: "integer", minimum: 1, maximum: PRINTED_ROWS, description: "Número de fila impreso (1 = primera fila de la tabla del equipo)." },
+          fila: { type: "integer", description: "Número de fila impreso (1 = primera fila de la tabla del equipo)." },
           nombre_escrito: { type: ["string", "null"], description: "Solo para filas en blanco: el nombre escrito a mano. null si la fila tenía nombre impreso." },
           numero: { type: ["string", "null"], description: "N° de camiseta escrito en el recuadro N°." },
           firmo: { type: "boolean", description: "Hay una firma o trazo en la columna Firma." },
-          goles: { type: "integer", minimum: 0, maximum: 4, description: "Cantidad de círculos RELLENOS en Goles (un círculo solo contorneado no cuenta)." },
+          goles: { type: "integer", description: "Cantidad de círculos RELLENOS en Goles (un círculo solo contorneado no cuenta)." },
           amarilla: { type: "boolean", description: "Casilla TA marcada." },
           roja: { type: "boolean", description: "Casilla TR marcada." },
           dudoso: { type: "boolean", description: "true si algún dato de esta fila no se lee con seguridad." },
           motivo: { type: ["string", "null"], description: "Qué es dudoso, en pocas palabras y en español." },
         },
         required: ["fila", "nombre_escrito", "numero", "firmo", "goles", "amarilla", "roja", "dudoso", "motivo"],
+        additionalProperties: false,
       },
     },
-    autogoles_a_favor: { type: "integer", minimum: 0, maximum: 20, description: "Recuadro 'Autogoles del rival a favor' de este equipo (0 si está vacío)." },
+    autogoles_a_favor: { type: "integer", description: "Recuadro 'Autogoles del rival a favor' de este equipo (0 si está vacío)." },
   },
   required: ["filas", "autogoles_a_favor"],
+  additionalProperties: false,
 };
 
-const TOOL = {
-  name: "registrar_papeleta",
-  description: "Registra lo que se lee en la foto de la papeleta del partido.",
-  input_schema: {
+// Salida estructurada (output_config.format): la respuesta es JSON que cumple este esquema.
+const SHEET_SCHEMA = {
+  schema: {
     type: "object",
     properties: {
       es_papeleta_mediogol: { type: "boolean", description: "false si la imagen no es una papeleta de MedioGol o es ilegible." },
@@ -78,14 +82,15 @@ const TOOL = {
       marcador: {
         type: "object",
         properties: {
-          local: { type: ["integer", "null"], minimum: 0, maximum: 99 },
-          visita: { type: ["integer", "null"], minimum: 0, maximum: 99 },
+          local: { type: ["integer", "null"] },
+          visita: { type: ["integer", "null"] },
           dudoso: { type: "boolean" },
           motivo: { type: ["string", "null"] },
         },
         required: ["local", "visita", "dudoso", "motivo"],
+        additionalProperties: false,
       },
-      wo: { type: ["string", "null"], enum: ["local", "visita", null], description: "Equipo marcado como 'No se presentó (W.O.)'." },
+      wo: { type: "string", enum: ["ninguno", "local", "visita"], description: "Equipo marcado como 'No se presentó (W.O.)'; 'ninguno' si no hay marca." },
       local: teamSchema,
       visita: teamSchema,
       observaciones: { type: ["string", "null"], description: "Texto del recuadro de observaciones del árbitro, transcrito." },
@@ -98,14 +103,16 @@ const TOOL = {
           capitan_visita: { type: "boolean" },
         },
         required: ["turno", "arbitro", "capitan_local", "capitan_visita"],
+        additionalProperties: false,
       },
       advertencias: { type: "array", items: { type: "string" }, description: "Problemas generales: foto cortada, borrosa, hoja doblada, etc." },
     },
     required: ["es_papeleta_mediogol", "codigo_leido", "marcador", "wo", "local", "visita", "observaciones", "firmas", "advertencias"],
+    additionalProperties: false,
   },
 };
 
-const SYSTEM = `Lees fotos de papeletas de partido de fútbol amateur generadas por MedioGol y registras su contenido con la herramienta registrar_papeleta.
+const SYSTEM = `Lees fotos de papeletas de partido de fútbol amateur generadas por MedioGol y respondes con un JSON que registra su contenido.
 
 La papeleta tiene: arriba la competencia y un QR con un código MG-XXXX-XXXX; un recuadro de resultado con dos dígitos por equipo y casillas "No se presentó (W.O.)"; dos tablas (Local a la izquierda, Visita a la derecha) con columnas N° (recuadro donde el jugador escribe su número del día), Jugador (nombre impreso o escrito en filas en blanco), Firma, Goles (4 círculos: se rellena uno por gol), TA y TR (casillas de tarjeta amarilla y roja); un recuadro de autogoles por equipo; observaciones del árbitro; y firmas de encargado de turno, árbitro y capitanes.
 
@@ -131,8 +138,47 @@ const contextText = (c: Context) => {
     `Competencia: ${[c.league, c.series ?? c.championship].filter(Boolean).join(" · ")}${c.round ? ` · Fecha ${c.round}` : ""}.`,
     team("Tabla LOCAL (izquierda)", c.home),
     team("Tabla VISITA (derecha)", c.away),
-    "Registra la papeleta con la herramienta.",
+    "Responde con el JSON de la papeleta.",
   ].join("\n\n");
+};
+
+const PURGE_AFTER_DAYS = 30;
+const PURGE_BATCH = 20;
+
+/** Borra fotos de papeletas no confirmadas antiguas. Nunca toca las confirmadas (status 'applied'). */
+// deno-lint-ignore no-explicit-any
+const purgeOldSheetPhotos = async (admin: any) => {
+  try {
+    const before = new Date(Date.now() - PURGE_AFTER_DAYS * 24 * 60 * 60 * 1000).toISOString();
+    const { data: old, error } = await admin
+      .from("match_sheets")
+      .select("id, image_paths")
+      .neq("status", "applied")
+      .is("images_purged_at", null)
+      .lt("created_at", before)
+      .order("created_at", { ascending: true })
+      .limit(PURGE_BATCH);
+    if (error || !old?.length) return;
+    const files = old.flatMap((r: { image_paths: string[] | null }) => r.image_paths ?? []);
+    if (files.length) {
+      const { error: rmError } = await admin.storage.from("match-sheets").remove(files);
+      if (rmError) return console.error("purge remove", rmError.message);
+    }
+    await admin
+      .from("match_sheets")
+      .update({ images_purged_at: new Date().toISOString() })
+      .in("id", old.map((r: { id: string }) => r.id))
+      .neq("status", "applied");
+  } catch (err) {
+    console.error("purge", err);
+  }
+};
+
+/** Corre la limpieza sin demorar la respuesta al usuario. */
+const runInBackground = (task: Promise<unknown>) => {
+  // deno-lint-ignore no-explicit-any
+  const rt = (globalThis as any).EdgeRuntime;
+  if (rt?.waitUntil) rt.waitUntil(task);
 };
 
 Deno.serve(async (req: Request) => {
@@ -177,6 +223,7 @@ Deno.serve(async (req: Request) => {
   if (!context) return json({ error: "No tienes permiso para este partido." }, 403);
 
   const admin = createClient(supabaseUrl, serviceKey);
+  runInBackground(purgeOldSheetPhotos(admin));
 
   // Límite de uso por usuario (controla costos)
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -196,8 +243,12 @@ Deno.serve(async (req: Request) => {
     .single();
   if (insertError || !sheet) return json({ error: "No se pudo registrar la papeleta." }, 500);
 
-  const fail = async (message: string, status = 502) => {
-    await admin.from("match_sheets").update({ status: "failed", error: message }).eq("id", sheet.id);
+  // Al usuario se le muestra un mensaje simple; el detalle técnico queda en match_sheets.error.
+  const fail = async (message: string, status = 502, detail?: string) => {
+    await admin
+      .from("match_sheets")
+      .update({ status: "failed", error: detail ? `${message} | ${detail}`.slice(0, 1000) : message })
+      .eq("id", sheet.id);
     return json({ error: message, sheet_id: sheet.id }, status);
   };
 
@@ -218,31 +269,46 @@ Deno.serve(async (req: Request) => {
       headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
       body: JSON.stringify({
         model,
-        max_tokens: 4096,
+        max_tokens: 8000,
         system: SYSTEM,
-        tools: [TOOL],
-        tool_choice: { type: "tool", name: TOOL.name },
+        output_config: { format: { type: "json_schema", schema: SHEET_SCHEMA.schema } },
         messages: [{ role: "user", content: [...images, { type: "text", text: contextText(context) }] }],
       }),
     });
 
     if (!response.ok) {
-      console.error("Anthropic error", response.status, await response.text());
-      return await fail(response.status === 429 ? "El servicio de lectura está ocupado. Intenta en un minuto." : "No se pudo leer la papeleta.");
+      const detail = await response.text();
+      console.error("Anthropic error", response.status, detail);
+      return await fail(
+        response.status === 429 ? "El servicio de lectura está ocupado. Intenta en un minuto." : "No se pudo leer la papeleta.",
+        502,
+        `HTTP ${response.status}: ${detail}`
+      );
     }
 
     const result = await response.json();
-    const toolUse = (result.content ?? []).find((b: { type: string }) => b.type === "tool_use");
-    if (!toolUse?.input) return await fail("La lectura no devolvió datos. Intenta con otra foto.");
+    const text = (result.content ?? []).find((b: { type: string }) => b.type === "text")?.text;
+    let parsed: unknown = null;
+    try {
+      parsed = text ? JSON.parse(text) : null;
+    } catch {
+      parsed = null;
+    }
+    if (!parsed || result.stop_reason === "max_tokens") {
+      return await fail("La lectura no devolvió datos completos. Intenta con otra foto.", 502, `stop_reason: ${result.stop_reason}`);
+    }
+    // "ninguno" → null (el resto de la app espera null cuando no hay W.O.)
+    const sheetData = parsed as { wo?: string | null };
+    if (sheetData.wo !== "local" && sheetData.wo !== "visita") sheetData.wo = null;
 
     await admin
       .from("match_sheets")
-      .update({ status: "read", ai_result: toolUse.input, ai_usage: result.usage ?? null })
+      .update({ status: "read", ai_result: parsed, ai_usage: result.usage ?? null })
       .eq("id", sheet.id);
 
-    return json({ sheet_id: sheet.id, result: toolUse.input, context });
+    return json({ sheet_id: sheet.id, result: parsed, context });
   } catch (err) {
     console.error("read-match-sheet", err);
-    return await fail("Error inesperado al leer la papeleta.", 500);
+    return await fail("Error inesperado al leer la papeleta.", 500, String(err));
   }
 });
