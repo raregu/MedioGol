@@ -188,8 +188,25 @@ export const toPayload = (state: ReviewState) => {
     participants: state.rows
       .filter((r) => r.played)
       .map((r) => ({ side: r.side, player_id: r.player_id, name: r.player_id ? null : r.name || null, jersey: r.jersey || null })),
-    notes: state.notes || null,
+    notes: state.notes.trim().slice(0, NOTES_MAX) || null,
   };
+};
+
+/** Largo máximo de las observaciones (igual que el CHECK de matches.notes). */
+export const NOTES_MAX = 1000;
+
+/**
+ * Aviso si la observación habla de una expulsión pero no hay ninguna roja marcada
+ * (el árbitro suele anotarla solo en observaciones).
+ */
+export const notesWarning = (state: ReviewState): string | null => {
+  const t = state.notes.toLowerCase();
+  if (!t.trim()) return null;
+  const mentionsRed = /expuls|tarjeta roja|\broja\b|\btr\b|doble amarilla/.test(t);
+  if (mentionsRed && !state.rows.some((r) => r.red)) {
+    return 'La observación menciona una expulsión, pero no hay ninguna roja marcada. Márcala en el jugador si corresponde.';
+  }
+  return null;
 };
 
 /** Reduce la foto a 1600 px de lado mayor en JPEG (menos tokens, subida más rápida). */

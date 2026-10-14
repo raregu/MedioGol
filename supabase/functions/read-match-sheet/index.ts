@@ -5,6 +5,9 @@
 //   ANTHROPIC_API_KEY   clave de la API de Anthropic (obligatoria)
 //   MATCH_SHEET_MODEL   opcional, por defecto claude-sonnet-5-5
 //   MATCH_SHEET_DAILY_LIMIT opcional, papeletas por usuario cada 24 h (por defecto 60)
+//
+// Limpieza: en cada llamada borra en segundo plano (lotes chicos) las fotos de papeletas
+// NO confirmadas con más de 30 días. Las fotos de papeletas confirmadas se conservan siempre.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
 
@@ -139,6 +142,45 @@ const contextText = (c: Context) => {
   ].join("\n\n");
 };
 
+const PURGE_AFTER_DAYS = 30;
+const PURGE_BATCH = 20;
+
+/** Borra fotos de papeletas no confirmadas antiguas. Nunca toca las confirmadas (status 'applied'). */
+// deno-lint-ignore no-explicit-any
+const purgeOldSheetPhotos = async (admin: any) => {
+  try {
+    const before = new Date(Date.now() - PURGE_AFTER_DAYS * 24 * 60 * 60 * 1000).toISOString();
+    const { data: old, error } = await admin
+      .from("match_sheets")
+      .select("id, image_paths")
+      .neq("status", "applied")
+      .is("images_purged_at", null)
+      .lt("created_at", before)
+      .order("created_at", { ascending: true })
+      .limit(PURGE_BATCH);
+    if (error || !old?.length) return;
+    const files = old.flatMap((r: { image_paths: string[] | null }) => r.image_paths ?? []);
+    if (files.length) {
+      const { error: rmError } = await admin.storage.from("match-sheets").remove(files);
+      if (rmError) return console.error("purge remove", rmError.message);
+    }
+    await admin
+      .from("match_sheets")
+      .update({ images_purged_at: new Date().toISOString() })
+      .in("id", old.map((r: { id: string }) => r.id))
+      .neq("status", "applied");
+  } catch (err) {
+    console.error("purge", err);
+  }
+};
+
+/** Corre la limpieza sin demorar la respuesta al usuario. */
+const runInBackground = (task: Promise<unknown>) => {
+  // deno-lint-ignore no-explicit-any
+  const rt = (globalThis as any).EdgeRuntime;
+  if (rt?.waitUntil) rt.waitUntil(task);
+};
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 200, headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Método no permitido" }, 405);
@@ -181,6 +223,7 @@ Deno.serve(async (req: Request) => {
   if (!context) return json({ error: "No tienes permiso para este partido." }, 403);
 
   const admin = createClient(supabaseUrl, serviceKey);
+  runInBackground(purgeOldSheetPhotos(admin));
 
   // Límite de uso por usuario (controla costos)
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
