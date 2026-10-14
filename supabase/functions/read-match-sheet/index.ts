@@ -7,12 +7,18 @@
 //   MATCH_SHEET_DAILY_LIMIT opcional, papeletas por usuario cada 24 h (por defecto 60)
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
-import { encodeBase64 } from "jsr:@std/encoding@1.0.10/base64";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
+};
+
+/** Base64 sin dependencias externas (por bloques, para no exceder la pila con fotos grandes). */
+const encodeBase64 = (bytes: Uint8Array) => {
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(binary);
 };
 
 const json = (body: unknown, status = 200) =>

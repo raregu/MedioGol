@@ -136,7 +136,7 @@ export const MatchSheetPrint = ({ ctx }: { ctx: MatchSheetContext }) => {
         </div>
       </section>
 
-      <section aria-label="Firmas" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 18, paddingTop: 22 }}>
+      <section aria-label="Firmas" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 18, paddingTop: 64 }}>
         {['Firma encargado de turno', 'Firma árbitro', 'Firma capitán local', 'Firma capitán visita'].map((label) => (
           <div key={label} style={{ borderTop: `1.5px solid ${INK}`, paddingTop: 3, fontSize: 10, fontWeight: 700, textAlign: 'center' }}>
             {label}
