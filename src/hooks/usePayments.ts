@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { DEFAULT_FEE_SETTINGS, FeeSettings, TeamBalance, TeamStatement } from '../types/payments';
+import { DEFAULT_FEE_SETTINGS, FeeSettings, LeagueSeriesPayment, TeamBalance, TeamStatement } from '../types/payments';
 
 type Status = 'loading' | 'ready' | 'denied' | 'error';
 
@@ -9,7 +9,7 @@ const isDenied = (err: { code?: string } | null) => err?.code === '42501';
 /** Panel del campeonato: datos, permisos, saldos por equipo y configuración. Datos privados: sin caché. */
 export const useChampionshipPayments = (championshipId: string) => {
   const [status, setStatus] = useState<Status>('loading');
-  const [championship, setChampionship] = useState<{ id: string; name: string } | null>(null);
+  const [championship, setChampionship] = useState<{ id: string; name: string; league_id: string | null } | null>(null);
   const [canManage, setCanManage] = useState(false);
   const [balances, setBalances] = useState<TeamBalance[]>([]);
   const [settings, setSettings] = useState<FeeSettings | null>(null);
@@ -22,7 +22,7 @@ export const useChampionshipPayments = (championshipId: string) => {
     const signal = controller.signal;
     setStatus((s) => (s === 'ready' ? s : 'loading'));
     const [champRes, manageRes, balancesRes, settingsRes] = await Promise.all([
-      supabase.from('championships').select('id, name').eq('id', championshipId).abortSignal(signal).maybeSingle(),
+      supabase.from('championships').select('id, name, league_id').eq('id', championshipId).abortSignal(signal).maybeSingle(),
       supabase.rpc('can_manage_championship_payments', { p_championship_id: championshipId }).abortSignal(signal),
       supabase.rpc('championship_balances', { p_championship_id: championshipId }).abortSignal(signal),
       supabase.from('championship_fee_settings').select('*').eq('championship_id', championshipId).abortSignal(signal).maybeSingle(),
@@ -76,4 +76,40 @@ export const useTeamStatement = (teamId: string) => {
   }, [load]);
 
   return { status, statement, reload: load };
+};
+
+/** Resumen de cobros de todas las series de una liga (administradores de la liga). */
+export const useLeaguePayments = (leagueId: string) => {
+  const [status, setStatus] = useState<Status>('loading');
+  const [league, setLeague] = useState<{ id: string; name: string } | null>(null);
+  const [series, setSeries] = useState<LeagueSeriesPayment[]>([]);
+  const controllerRef = useRef<AbortController | null>(null);
+
+  const load = useCallback(async () => {
+    controllerRef.current?.abort();
+    const controller = new AbortController();
+    controllerRef.current = controller;
+    const signal = controller.signal;
+    setStatus((s) => (s === 'ready' ? s : 'loading'));
+    const [leagueRes, summaryRes] = await Promise.all([
+      supabase.from('leagues').select('id, name').eq('id', leagueId).abortSignal(signal).maybeSingle(),
+      supabase.rpc('league_payment_summary', { p_league_id: leagueId }).abortSignal(signal),
+    ]);
+    if (signal.aborted) return;
+    if (isDenied(summaryRes.error)) return setStatus('denied');
+    if (leagueRes.error || summaryRes.error || !leagueRes.data) {
+      console.error('league payments', leagueRes.error || summaryRes.error);
+      return setStatus('error');
+    }
+    setLeague(leagueRes.data);
+    setSeries((summaryRes.data || []) as LeagueSeriesPayment[]);
+    setStatus('ready');
+  }, [leagueId]);
+
+  useEffect(() => {
+    load();
+    return () => controllerRef.current?.abort();
+  }, [load]);
+
+  return { status, league, series, reload: load };
 };

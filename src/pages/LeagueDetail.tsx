@@ -30,6 +30,7 @@ import {
   Layers,
   MapPin,
   Settings,
+  Wallet,
   Shield,
   Trophy,
   Users,
@@ -230,6 +231,11 @@ export const LeagueDetail = () => {
                 <button onClick={() => setShowManage(true)} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-amber-400 text-amber-950 font-bold text-sm hover:bg-amber-300">
                   <Settings className="h-4 w-4" /> Administrar liga
                 </button>
+              )}
+              {canManage && (
+                <a href={`/pagos?league=${league.id}`} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-white text-emerald-950 font-bold text-sm hover:bg-emerald-50">
+                  <Wallet className="h-4 w-4" aria-hidden="true" /> Pagos
+                </a>
               )}
             </div>
           </div>

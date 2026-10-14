@@ -83,3 +83,17 @@ export interface TeamStatement {
   charges: StatementCharge[];
   payments: StatementPayment[];
 }
+
+export interface LeagueSeriesPayment {
+  championship_id: string;
+  championship_name: string;
+  series_name: string | null;
+  display_order: number;
+  configured: boolean;
+  teams: number;
+  to_collect: number;
+  overdue: number;
+  paid: number;
+  debtors: number;
+  pending_review: number;
+}

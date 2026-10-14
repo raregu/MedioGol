@@ -2,7 +2,8 @@ import { Layout } from '../components/Layout';
 import { useAuth } from '../contexts/AuthContext';
 import { ChampionshipPaymentsView } from '../components/payments/ChampionshipPaymentsView';
 import { TeamStatementView } from '../components/payments/TeamStatementView';
-import { useChampionshipPayments, useTeamStatement } from '../hooks/usePayments';
+import { LeaguePaymentsView } from '../components/payments/LeaguePaymentsView';
+import { useChampionshipPayments, useLeaguePayments, useTeamStatement } from '../hooks/usePayments';
 import { secondaryBtn } from '../components/payments/PaymentsUi';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -28,6 +29,14 @@ export const ChampionshipPayments = ({ id }: { id: string }) => {
   return <ChampionshipPaymentsView championship={championship} canManage={canManage} balances={balances} settings={settings} onChanged={reload} />;
 };
 
+const LeaguePayments = ({ id }: { id: string }) => {
+  const { status, league, series, reload } = useLeaguePayments(id);
+  if (status === 'loading') return <p role="status" className="py-16 text-center text-mg-muted">Cargando pagos de la liga…</p>;
+  if (status === 'denied') return <Message title="No tienes acceso a los pagos de esta liga." text="Solo lo ven sus administradores." />;
+  if (status === 'error' || !league) return <Message title="No se pudieron cargar los pagos de la liga." onRetry={reload} />;
+  return <LeaguePaymentsView league={league} series={series} />;
+};
+
 const TeamPayments = ({ id }: { id: string }) => {
   const { status, statement, reload } = useTeamStatement(id);
   if (status === 'loading') return <p role="status" className="py-16 text-center text-mg-muted">Cargando estado de cuenta…</p>;
@@ -39,6 +48,7 @@ const TeamPayments = ({ id }: { id: string }) => {
 
 /**
  * /pagos?championship=<id>  panel de cobros del campeonato (administradores y encargados de turno)
+ * /pagos?league=<id>       resumen por serie de una liga (administradores de la liga)
  * /pagos?team=<id>          estado de cuenta de un equipo (personal del campeonato o capitán)
  */
 export const Payments = () => {
@@ -46,11 +56,13 @@ export const Payments = () => {
   const params = new URLSearchParams(window.location.search);
   const championshipId = params.get('championship') || '';
   const teamId = params.get('team') || '';
+  const leagueId = params.get('league') || '';
 
   let body;
   if (loading) body = <p role="status" className="py-16 text-center text-mg-muted">Cargando…</p>;
   else if (!profile) body = <Message title="Inicia sesión para ver los pagos." />;
   else if (UUID_RE.test(teamId)) body = <TeamPayments key={teamId} id={teamId} />;
+  else if (UUID_RE.test(leagueId)) body = <LeaguePayments key={leagueId} id={leagueId} />;
   else if (UUID_RE.test(championshipId)) body = <ChampionshipPayments key={championshipId} id={championshipId} />;
   else body = <Message title="Página no encontrada." />;
 

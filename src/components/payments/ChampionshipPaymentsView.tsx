@@ -6,7 +6,7 @@ import { FeeSettingsForm } from './FeeSettingsForm';
 import { Tile, fieldClass, secondaryBtn } from './PaymentsUi';
 
 interface Props {
-  championship: { id: string; name: string };
+  championship: { id: string; name: string; league_id?: string | null };
   canManage: boolean;
   balances: TeamBalance[];
   settings: FeeSettings | null;
@@ -50,9 +50,16 @@ export const ChampionshipPaymentsView = ({ championship, canManage, balances, se
   return (
     <div className="space-y-6">
       <header className="bg-mg-navy text-mg-on-navy rounded-mg-lg p-5 sm:p-6">
-        <a href={`/championship/${championship.id}`} className="inline-flex items-center gap-1 text-sm font-bold text-mg-on-navy-muted hover:text-mg-on-navy min-h-[44px]">
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Volver al campeonato
-        </a>
+        <div className="flex flex-wrap gap-x-5">
+          <a href={`/championship/${championship.id}`} className="inline-flex items-center gap-1 text-sm font-bold text-mg-on-navy-muted hover:text-mg-on-navy min-h-[44px]">
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Volver al campeonato
+          </a>
+          {championship.league_id && canManage && (
+            <a href={`/pagos?league=${championship.league_id}`} className="inline-flex items-center gap-1 text-sm font-bold text-mg-on-navy-muted hover:text-mg-on-navy min-h-[44px]">
+              Pagos de toda la liga
+            </a>
+          )}
+        </div>
         <p className="mg-label text-mg-on-navy-muted">{championship.name}</p>
         <h1 className="font-display text-[34px] leading-9 font-extrabold uppercase">Pagos</h1>
       </header>
@@ -77,7 +84,7 @@ export const ChampionshipPaymentsView = ({ championship, canManage, balances, se
       )}
 
       {tab === 'settings' && canManage ? (
-        <FeeSettingsForm championshipId={championship.id} initial={settings} onSaved={onChanged} />
+        <FeeSettingsForm championshipId={championship.id} initial={settings} leagueId={championship.league_id} onSaved={onChanged} />
       ) : (
         <>
           {!settings && (
