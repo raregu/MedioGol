@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Layout } from '../components/Layout';
 import { supabase } from '../lib/supabase';
 import { Championship, Match, Team, TeamStanding, PlayoffConfig, PlayoffMatch, Advertisement, Sponsor, League } from '../types/database';
-import { Trophy, Calendar, MapPin, Users, Target, AlertCircle, Phone, FileText, CreditCard as Edit, Shield, Award, AlertTriangle, Eye, Trash2, Zap, Plus, BarChart2, Image } from 'lucide-react';
+import { Trophy, Calendar, MapPin, Users, Target, AlertCircle, Phone, FileText, CreditCard as Edit, Shield, Award, AlertTriangle, Eye, Trash2, Zap, Plus, BarChart2, Image, Wallet } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { MatchDetailsModal } from '../components/admin/MatchDetailsModal';
 import { CreateMatchModal } from '../components/admin/CreateMatchModal';
@@ -76,6 +76,22 @@ export const ChampionshipDetail = () => {
   const [showSponsorsModal, setShowSponsorsModal] = useState(false);
 
   const championshipId = window.location.pathname.split('/').pop();
+  // Pagos: administradores, admin de la liga y encargados de turno (lo decide el servidor)
+  const [canPayments, setCanPayments] = useState(false);
+  useEffect(() => {
+    if (!profile?.id || !championshipId) {
+      setCanPayments(false);
+      return;
+    }
+    const controller = new AbortController();
+    supabase
+      .rpc('can_collect_championship_payments', { p_championship_id: championshipId })
+      .abortSignal(controller.signal)
+      .then(({ data }) => {
+        if (!controller.signal.aborted) setCanPayments(data === true);
+      });
+    return () => controller.abort();
+  }, [profile?.id, championshipId]);
   const isAdmin = profile && (profile.role === 'system_admin' || championship?.admin_id === profile.id);
 
   useEffect(() => {
@@ -556,9 +572,30 @@ export const ChampionshipDetail = () => {
           </div>
         </div>
 
+        {canPayments && !isAdmin && (
+          <div className="bg-white rounded-lg shadow-md p-4">
+            <a
+              href={`/pagos?championship=${championshipId}`}
+              className="inline-flex items-center gap-2 min-h-[44px] px-4 bg-mg-pitch text-mg-on-pitch rounded-mg-md font-extrabold text-sm"
+            >
+              <Wallet className="h-4 w-4" aria-hidden="true" />
+              Pagos
+            </a>
+          </div>
+        )}
+
         {isAdmin && (
           <div className="bg-white rounded-lg shadow-md p-4">
             <div className="flex flex-wrap gap-2">
+              {canPayments && (
+                <a
+                  href={`/pagos?championship=${championshipId}`}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-mg-pitch text-mg-on-pitch rounded-lg font-medium text-sm"
+                >
+                  <Wallet className="h-4 w-4" aria-hidden="true" />
+                  Pagos
+                </a>
+              )}
               <button
                 onClick={() => setShowSanctionsModal(true)}
                 className="flex items-center gap-2 px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium text-sm"
