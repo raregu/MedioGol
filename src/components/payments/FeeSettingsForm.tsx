@@ -8,17 +8,20 @@ import { Field, MoneyInput, errorText, fieldClass, primaryBtn } from './Payments
 interface Props {
   championshipId: string;
   initial: FeeSettings | null;
+  /** Si la serie pertenece a una liga, se ofrece copiar la configuración a las demás series. */
+  leagueId?: string | null;
   onSaved: () => void;
 }
 
 /** Cobros del campeonato. Al guardar se generan los cargos que falten (en el servidor). */
-export const FeeSettingsForm = ({ championshipId, initial, onSaved }: Props) => {
+export const FeeSettingsForm = ({ championshipId, initial, leagueId, onSaved }: Props) => {
   const [f, setF] = useState<FeeSettings>(initial ?? DEFAULT_FEE_SETTINGS);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
+  const [saved, setSaved] = useState<string | null>(null);
+  const [copyToLeague, setCopyToLeague] = useState(false);
   const set = <K extends keyof FeeSettings>(k: K, v: FeeSettings[K]) => {
-    setSaved(false);
+    setSaved(null);
     setF((prev) => ({ ...prev, [k]: v }));
   };
 
@@ -34,13 +37,30 @@ export const FeeSettingsForm = ({ championshipId, initial, onSaved }: Props) => 
       p_championship_id: championshipId,
       p_settings: { ...f, payment_instructions: f.payment_instructions?.trim() || null },
     });
-    setSaving(false);
     if (rpcError) {
+      setSaving(false);
       console.error('save_fee_settings', rpcError);
       setError(errorText(rpcError, 'No se pudo guardar la configuración. Intenta de nuevo.'));
       return;
     }
-    setSaved(true);
+    let copied = 0;
+    if (leagueId && copyToLeague) {
+      const { data, error: copyError } = await supabase.rpc('copy_fee_settings_to_league', { p_championship_id: championshipId });
+      if (copyError) {
+        setSaving(false);
+        console.error('copy_fee_settings_to_league', copyError);
+        setError(errorText(copyError, 'Se guardó esta serie, pero no se pudo copiar a las demás. Intenta de nuevo.'));
+        onSaved();
+        return;
+      }
+      copied = Number(data) || 0;
+    }
+    setSaving(false);
+    setSaved(
+      copied > 0
+        ? `Cobros guardados en esta serie y copiados a ${copied} ${copied === 1 ? 'serie más' : 'series más'} de la liga.`
+        : 'Cobros guardados y cargos actualizados.'
+    );
     onSaved();
   };
 
@@ -120,6 +140,16 @@ export const FeeSettingsForm = ({ championshipId, initial, onSaved }: Props) => 
         </Field>
       </fieldset>
 
+      {leagueId && (
+        <label className="flex items-start gap-3 bg-mg-surface border border-mg-line rounded-mg-lg p-4 cursor-pointer">
+          <input type="checkbox" checked={copyToLeague} onChange={(e) => setCopyToLeague(e.target.checked)} className="mt-1 h-5 w-5 accent-[var(--mg-pitch)]" />
+          <span>
+            <span className="block font-bold">Usar estos mismos cobros en todas las series de la liga</span>
+            <span className="block text-sm text-mg-muted">Reemplaza la configuración de las otras series y genera sus cargos. Los pagos ya registrados no se tocan.</span>
+          </span>
+        </label>
+      )}
+
       {error && <p role="alert" className="text-sm font-bold text-mg-danger">{error}</p>}
       <div className="flex flex-wrap items-center gap-3">
         <p className="flex-1 min-w-[16rem] text-sm text-mg-muted">
@@ -127,10 +157,10 @@ export const FeeSettingsForm = ({ championshipId, initial, onSaved }: Props) => 
         </p>
         <button type="submit" disabled={saving || invalidInstallments} className={primaryBtn}>
           {saving && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
-          Guardar cobros
+          {leagueId && copyToLeague ? 'Guardar en todas las series' : 'Guardar cobros'}
         </button>
       </div>
-      {saved && <p role="status" className="text-sm font-bold text-mg-pitch-deep">Cobros guardados y cargos actualizados.</p>}
+      {saved && <p role="status" className="text-sm font-bold text-mg-pitch-deep">{saved}</p>}
     </form>
   );
 };
