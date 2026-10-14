@@ -239,6 +239,20 @@ export const LeagueDetail = () => {
               )}
             </div>
           </div>
+          {series.length > 0 && (
+            <div className="px-6 pb-5 flex flex-wrap items-center gap-2" aria-label="Series de la liga">
+              <span className="text-xs font-black uppercase tracking-wider text-emerald-300 mr-1">Ir a la serie</span>
+              {series.map((s) => (
+                <a
+                  key={s.id}
+                  href={`/championship/${s.id}`}
+                  className="inline-flex items-center gap-1 min-h-[40px] px-4 rounded-full bg-white/10 border border-white/20 text-sm font-bold text-white hover:bg-white hover:text-emerald-950 transition-colors"
+                >
+                  {seriesLabel(s)} <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+                </a>
+              ))}
+            </div>
+          )}
           <nav className="px-4 flex flex-wrap gap-1 border-t border-white/10" aria-label="Secciones de la liga">
             {tabs.map((t) => (
               <button
@@ -368,10 +382,13 @@ export const LeagueDetail = () => {
               const table = seriesStandings(s.id, teams, matches, league);
               return (
                 <div key={s.id} className="bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col">
-                  <div className="p-4 border-b border-gray-100">
-                    <p className="text-xs font-black uppercase tracking-wider text-emerald-700">{seriesLabel(s)}</p>
-                    <p className="text-sm text-gray-600">{table.length} equipos</p>
-                  </div>
+                  <a href={`/championship/${s.id}`} className="p-4 border-b border-gray-100 flex items-center gap-3 hover:bg-emerald-50 rounded-t-xl">
+                    <span className="flex-1 min-w-0">
+                      <span className="block text-lg font-black uppercase tracking-wide text-emerald-900">{seriesLabel(s)}</span>
+                      <span className="block text-sm text-gray-600">{table.length} equipos</span>
+                    </span>
+                    <ArrowRight className="h-5 w-5 text-emerald-700 flex-none" aria-hidden="true" />
+                  </a>
                   <ol className="p-4 space-y-2 flex-1">
                     {table.slice(0, 4).map((r, i) => (
                       <li key={r.team_id} className="flex items-center gap-3 text-sm">
@@ -383,9 +400,16 @@ export const LeagueDetail = () => {
                       </li>
                     ))}
                   </ol>
-                  <a href={`/championship/${s.id}`} className="px-4 py-3 border-t border-gray-100 text-sm font-bold text-emerald-700 hover:bg-emerald-50 flex items-center gap-1 rounded-b-xl">
-                    Ver serie completa <ArrowRight className="h-4 w-4" />
-                  </a>
+                  <div className="p-3 border-t border-gray-100 flex flex-wrap gap-2">
+                    <a href={`/championship/${s.id}`} className="flex-1 inline-flex items-center justify-center gap-1 min-h-[44px] px-3 rounded-lg bg-emerald-700 text-white text-sm font-bold hover:bg-emerald-800">
+                      Abrir {seriesLabel(s)} <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                    </a>
+                    {canManage && (
+                      <a href={`/pagos?championship=${s.id}`} className="inline-flex items-center justify-center gap-1 min-h-[44px] px-3 rounded-lg border border-gray-300 text-sm font-bold text-gray-800 hover:bg-gray-50">
+                        <Wallet className="h-4 w-4" aria-hidden="true" /> Pagos
+                      </a>
+                    )}
+                  </div>
                 </div>
               );
             })}
