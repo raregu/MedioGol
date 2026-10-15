@@ -19,7 +19,7 @@ import {
 } from './PaymentsUi';
 
 /** Pide un motivo antes de anular o rechazar (queda registrado). */
-const ReasonPrompt = ({ label, action, onSubmit, onCancel }: { label: string; action: string; onSubmit: (reason: string) => Promise<void>; onCancel: () => void }) => {
+export const ReasonPrompt = ({ label, action, onSubmit, onCancel }: { label: string; action: string; onSubmit: (reason: string) => Promise<void>; onCancel: () => void }) => {
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
   const submit = async (e: FormEvent) => {
