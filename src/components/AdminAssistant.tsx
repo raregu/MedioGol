@@ -82,7 +82,9 @@ export const AdminAssistant = ({ open, onClose }: { open: boolean; onClose: () =
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const endRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => save(turns), [turns]);
+  useEffect(() => {
+    save(turns);
+  }, [turns]);
   useEffect(() => {
     if (!open) return;
     inputRef.current?.focus();
@@ -90,7 +92,11 @@ export const AdminAssistant = ({ open, onClose }: { open: boolean; onClose: () =
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
-  useEffect(() => endRef.current?.scrollIntoView({ block: 'end' }), [turns, busy, open]);
+  // Llaves a propósito: en Chrome reciente scrollIntoView devuelve una Promise y React la
+  // trataría como función de limpieza del efecto (pantalla en blanco).
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ block: 'end' });
+  }, [turns, busy, open]);
 
   const ask = async (question: string) => {
     const q = question.trim();
