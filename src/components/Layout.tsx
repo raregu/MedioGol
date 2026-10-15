@@ -139,11 +139,11 @@ export const Layout = ({ children }: LayoutProps) => {
                   {canUseAssistant && (
                     <button
                       onClick={() => setAssistantOpen(true)}
-                      className="flex items-center gap-2 px-3 py-2.5 text-mg-pitch-deep bg-mg-pitch-tint hover:bg-emerald-100 rounded-xl transition-all font-bold text-sm"
-                      title="Pregúntale al asistente cómo hacer algo"
+                      className="h-11 w-11 inline-flex items-center justify-center text-mg-pitch-deep bg-mg-pitch-tint hover:bg-emerald-100 rounded-xl transition-all"
+                      title="Asistente: pregúntale cómo hacer algo"
+                      aria-label="Abrir asistente"
                     >
-                      <Sparkles className="h-4 w-4" aria-hidden="true" />
-                      Asistente
+                      <Sparkles className="h-5 w-5" aria-hidden="true" />
                     </button>
                   )}
                   {pendingNotifications > 0 && (
