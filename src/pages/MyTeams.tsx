@@ -10,7 +10,7 @@ import CreateBaseTeamModal from '../components/CreateBaseTeamModal';
 import EditBaseTeamModal from '../components/EditBaseTeamModal';
 import { PlayerManagement } from '../components/PlayerManagement';
 import { JoinTeamSection } from '../components/JoinTeamSection';
-import { Users, Plus, Send, UserPlus, Trophy, AlertCircle, Bell, CheckCircle, XCircle, Shield, Eye, EyeOff, ChevronDown, ChevronUp, Edit, Search, Wallet } from 'lucide-react';
+import { Users, Plus, Send, UserPlus, Trophy, AlertCircle, Bell, CheckCircle, XCircle, Shield, Eye, EyeOff, ChevronDown, ChevronUp, Edit, Search, Wallet, PiggyBank } from 'lucide-react';
 
 interface CaptainInvitation {
   id: string;
@@ -482,6 +482,14 @@ export const MyTeams = () => {
                           )}
                         </div>
                         <div className="flex items-center gap-2">
+                          <a
+                            href={`/tesoreria?team=${team.id}`}
+                            className="inline-flex items-center gap-1 min-h-[40px] px-2 text-sm font-bold text-mg-pitch hover:bg-mg-pitch-tint rounded-lg"
+                            title="Tesorería interna del equipo"
+                          >
+                            <PiggyBank className="h-4 w-4" aria-hidden="true" />
+                            <span className="hidden sm:inline">Tesorería</span>
+                          </a>
                           <button
                             onClick={() => {
                               setSelectedBaseTeam(team);
@@ -872,6 +880,12 @@ export const MyTeams = () => {
                       <p className="text-sm text-gray-500 truncate">Capitán: {m.base_teams?.owner?.full_name || 'Desconocido'}</p>
                       <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full font-medium">Equipo (fuera de campeonato)</span>
                     </div>
+                    <a
+                      href={`/tesoreria?team=${m.base_team_id || m.base_teams?.id}`}
+                      className="inline-flex items-center gap-1 min-h-[44px] px-3 rounded-lg border border-gray-200 text-sm font-bold text-mg-pitch hover:bg-mg-pitch-tint flex-shrink-0"
+                    >
+                      <PiggyBank className="h-4 w-4" aria-hidden="true" /> {m.role === 'captain' ? 'Tesorería' : 'Mis cuotas'}
+                    </a>
                   </div>
                 ))}
                 {memberChampTeams.map((team: any) => (
