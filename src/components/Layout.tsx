@@ -1,8 +1,9 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { Trophy, Search, Users, BarChart3, MessageSquare, LogOut, Menu, X, Bell, Shield, Layers, Flag } from 'lucide-react';
+import { Trophy, Search, Users, BarChart3, MessageSquare, LogOut, Menu, X, Bell, Shield, Layers, Flag, Sparkles } from 'lucide-react';
 import { usePendingOrganizerRequests } from '../hooks/useOrganizerRequests';
+import { AdminAssistant } from './AdminAssistant';
 import { CaptainNotificationsModal } from './CaptainNotificationsModal';
 
 interface LayoutProps {
@@ -12,6 +13,8 @@ interface LayoutProps {
 export const Layout = ({ children }: LayoutProps) => {
   const { profile, signOut } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [assistantOpen, setAssistantOpen] = useState(false);
+  const canUseAssistant = !!profile && ['admin_sistema', 'admin_campeonato', 'encargado_turno'].includes(profile.role);
   const [pendingInvitations, setPendingInvitations] = useState(0);
   const [pendingNotifications, setPendingNotifications] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -152,6 +155,16 @@ export const Layout = ({ children }: LayoutProps) => {
             <div className="hidden md:flex items-center space-x-3">
               {profile ? (
                 <div className="flex items-center gap-3">
+                  {canUseAssistant && (
+                    <button
+                      onClick={() => setAssistantOpen(true)}
+                      className="h-11 w-11 inline-flex items-center justify-center text-mg-pitch-deep bg-mg-pitch-tint hover:bg-emerald-100 rounded-xl transition-all"
+                      title="Asistente: pregúntale cómo hacer algo"
+                      aria-label="Abrir asistente"
+                    >
+                      <Sparkles className="h-5 w-5" aria-hidden="true" />
+                    </button>
+                  )}
                   {pendingNotifications > 0 && (
                     <button
                       onClick={() => setShowNotifications(true)}
@@ -188,7 +201,16 @@ export const Layout = ({ children }: LayoutProps) => {
               )}
             </div>
 
-            <div className="md:hidden flex items-center">
+            <div className="md:hidden flex items-center gap-1">
+              {canUseAssistant && (
+                <button
+                  onClick={() => setAssistantOpen(true)}
+                  className="p-2 text-mg-pitch-deep hover:bg-emerald-50 rounded-xl transition-all"
+                  aria-label="Abrir asistente"
+                >
+                  <Sparkles className="h-6 w-6" aria-hidden="true" />
+                </button>
+              )}
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 className="p-2 text-gray-700 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all"
@@ -312,6 +334,7 @@ export const Layout = ({ children }: LayoutProps) => {
           }}
         />
       )}
+      {canUseAssistant && <AdminAssistant open={assistantOpen} onClose={() => setAssistantOpen(false)} />}
     </div>
   );
 };
