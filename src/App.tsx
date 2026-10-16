@@ -21,6 +21,7 @@ import { Treasury } from './pages/Treasury';
 import { Organize } from './pages/Organize';
 import { ForgotPassword } from './pages/ForgotPassword';
 import { ResetPassword } from './pages/ResetPassword';
+import { ConfirmEmail } from './pages/ConfirmEmail';
 
 function App() {
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
@@ -48,6 +49,7 @@ function App() {
   if (currentPath === '/register') return <Register />;
   if (currentPath === '/recuperar') return <ForgotPassword />;
   if (currentPath === '/restablecer') return <ResetPassword />;
+  if (currentPath === '/confirmar') return <ConfirmEmail />;
   if (currentPath === '/search') return <Search />;
   if (currentPath.startsWith('/championship/')) return <ChampionshipDetail />;
   if (currentPath === '/leagues') return <Leagues />;
