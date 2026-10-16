@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 import { CheckCircle2, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { AuthCard, authButton, authInput } from '../components/auth/AuthCard';
@@ -19,6 +19,9 @@ export const ResetPassword = () => {
   const [show, setShow] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  // Token del enlace (se lee una sola vez; en desarrollo StrictMode repite los efectos)
+  const tokenHash = useRef(new URLSearchParams(window.location.search).get('token_hash'));
+  const verifyStarted = useRef(false);
 
   useEffect(() => {
     document.title = 'Nueva contraseña · MedioGol';
@@ -31,6 +34,24 @@ export const ResetPassword = () => {
           : 'El enlace no es válido.'
       );
       setState('invalid');
+      return;
+    }
+
+    // Enlace con token_hash (plantilla que apunta a mediogol.cl): se valida aquí mismo.
+    if (tokenHash.current) {
+      if (verifyStarted.current) return;
+      verifyStarted.current = true;
+      supabase.auth.verifyOtp({ token_hash: tokenHash.current, type: 'recovery' }).then(({ data, error: otpError }) => {
+        // El token es de un solo uso: se saca de la URL para que no quede en el historial
+        window.history.replaceState(null, '', '/restablecer');
+        if (otpError || !data.session) {
+          console.error('verifyOtp(recovery)', otpError);
+          setLinkError(otpError?.message?.toLowerCase().includes('expired') ? 'El enlace venció o ya se usó.' : 'El enlace no es válido.');
+          setState('invalid');
+          return;
+        }
+        setState('ready');
+      });
       return;
     }
 

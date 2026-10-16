@@ -1,4 +1,4 @@
-<!-- Supabase → Authentication → Emails → Templates → "Reset password"
+<!-- Supabase → Authentication → Emails → Templates → "Reset password" (pegar completo; el enlace usa Site URL = https://mediogol.cl)
      Asunto: Crea tu nueva contraseña de MedioGol -->
 <div style="margin:0;padding:24px 12px;background:#f2f4f1;font-family:Arial,Helvetica,sans-serif;color:#0c1a2e">
   <div style="max-width:480px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e3e7e2">
@@ -11,7 +11,7 @@
         Recibimos una solicitud para cambiar la contraseña de tu cuenta ({{ .Email }}). Toca el botón para elegir una nueva.
       </p>
       <p style="margin:0 0 24px">
-        <a href="{{ .ConfirmationURL }}" style="display:inline-block;background:#1a7f3c;color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;padding:14px 22px;border-radius:10px">Crear nueva contraseña</a>
+        <a href="{{ .SiteURL }}/restablecer?token_hash={{ .TokenHash }}&type=recovery" style="display:inline-block;background:#1a7f3c;color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;padding:14px 22px;border-radius:10px">Crear nueva contraseña</a>
       </p>
       <p style="margin:0 0 8px;font-size:13px;line-height:19px;color:#5b6676">
         El enlace dura 1 hora y sirve una sola vez. Si no pediste este cambio, ignora este correo: tu contraseña sigue igual.
