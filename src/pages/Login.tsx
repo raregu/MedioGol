@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Layout } from '../components/Layout';
+import { safeNext, withNext } from '../utils/safeNext';
 import { Trophy, Mail, Lock, AlertCircle } from 'lucide-react';
 
 export const Login = () => {
@@ -17,7 +18,7 @@ export const Login = () => {
 
     try {
       await signIn(email, password);
-      window.location.href = '/';
+      window.location.href = safeNext();
     } catch (err) {
       setError('Credenciales incorrectas. Por favor, intenta de nuevo.');
       console.error(err);
@@ -94,7 +95,7 @@ export const Login = () => {
           <div className="mt-8 text-center">
             <p className="text-gray-600 font-medium">
               ¿No tienes una cuenta?{' '}
-              <a href="/register" className="text-emerald-600 hover:text-emerald-700 font-bold">
+              <a href={withNext('/register')} className="text-emerald-600 hover:text-emerald-700 font-bold">
                 Regístrate aquí
               </a>
             </p>

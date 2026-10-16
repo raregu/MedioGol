@@ -11,6 +11,8 @@ interface AuthContextType {
   signUp: (email: string, password: string, fullName: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  /** Vuelve a leer el perfil y renueva la sesión (por ejemplo, después de un cambio de rol). */
+  refreshProfile: () => Promise<void>;
   isAdmin: boolean;
   isChampionshipAdmin: boolean;
   isShiftManager: boolean;
@@ -126,6 +128,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     setProfile(null);
   };
 
+  const refreshProfile = async () => {
+    const { data } = await supabase.auth.refreshSession();
+    const uid = data.session?.user?.id ?? user?.id;
+    if (uid) setProfile(await fetchProfile(uid));
+  };
+
   const isAdmin = profile?.role === 'admin_sistema';
   const isChampionshipAdmin = profile?.role === 'admin_campeonato' || profile?.role === 'admin_sistema';
   const isShiftManager = profile?.role === 'encargado_turno';
@@ -143,6 +151,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     signUp,
     signIn,
     signOut,
+    refreshProfile,
     isAdmin,
     isChampionshipAdmin,
     isShiftManager,

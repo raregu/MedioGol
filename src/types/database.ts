@@ -1,4 +1,4 @@
-export type UserRole = 'admin_sistema' | 'admin_campeonato' | 'usuario';
+export type UserRole = 'admin_sistema' | 'admin_campeonato' | 'usuario' | 'capitan' | 'encargado_turno';
 
 export type ChampionshipStatus = 'draft' | 'active' | 'finished';
 

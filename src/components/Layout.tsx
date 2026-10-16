@@ -1,7 +1,8 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { Trophy, Search, Users, BarChart3, MessageSquare, LogOut, Menu, X, Bell, Shield, Layers } from 'lucide-react';
+import { Trophy, Search, Users, BarChart3, MessageSquare, LogOut, Menu, X, Bell, Shield, Layers, Flag } from 'lucide-react';
+import { usePendingOrganizerRequests } from '../hooks/useOrganizerRequests';
 import { CaptainNotificationsModal } from './CaptainNotificationsModal';
 
 interface LayoutProps {
@@ -14,6 +15,9 @@ export const Layout = ({ children }: LayoutProps) => {
   const [pendingInvitations, setPendingInvitations] = useState(0);
   const [pendingNotifications, setPendingNotifications] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
+  const pendingOrganizerRequests = usePendingOrganizerRequests(profile?.role === 'admin_sistema');
+  // Invitación a pedir acceso de organizador: visitantes y usuarios sin rol de administración
+  const showOrganize = !profile || profile.role === 'usuario' || profile.role === 'capitan';
 
   useEffect(() => {
     if (profile) {
@@ -121,12 +125,27 @@ export const Layout = ({ children }: LayoutProps) => {
                     </a>
                   )}
                   {profile.role !== 'usuario' && profile.role !== 'encargado_turno' && (
-                    <a href="/admin" className="px-3 py-2 text-gray-700 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all font-semibold flex items-center gap-2">
+                    <a
+                      href={pendingOrganizerRequests > 0 ? '/admin?tab=solicitudes' : '/admin'}
+                      className="px-3 py-2 text-gray-700 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all font-semibold flex items-center gap-2 relative"
+                    >
                       <BarChart3 className="h-5 w-5" />
                       Administrar
+                      {pendingOrganizerRequests > 0 && (
+                        <span className="absolute -top-1 -right-1 bg-mg-gold text-mg-on-gold text-xs font-extrabold rounded-full min-w-5 h-5 px-1 flex items-center justify-center">
+                          {pendingOrganizerRequests}
+                          <span className="sr-only"> solicitudes de organizador por revisar</span>
+                        </span>
+                      )}
                     </a>
                   )}
                 </>
+              )}
+              {!profile && (
+                <a href="/organizar" className="px-3 py-2 text-mg-pitch-deep hover:bg-mg-pitch-tint rounded-xl transition-all font-bold flex items-center gap-2 whitespace-nowrap">
+                  <Flag className="h-5 w-5" aria-hidden="true" />
+                  Organiza tu liga
+                </a>
               )}
             </div>
 
@@ -198,6 +217,12 @@ export const Layout = ({ children }: LayoutProps) => {
                   <Users className="h-5 w-5" />
                   Equipos
                 </a>
+                {showOrganize && (
+                  <a href="/organizar" className="text-mg-pitch-deep font-bold py-2 flex items-center gap-2">
+                    <Flag className="h-5 w-5" aria-hidden="true" />
+                    Organiza tu liga
+                  </a>
+                )}
                 {profile && (
                   <>
                     <a href="/my-teams" className="text-gray-700 hover:text-emerald-600 py-2 flex items-center gap-2">
@@ -219,9 +244,15 @@ export const Layout = ({ children }: LayoutProps) => {
                       </a>
                     )}
                     {profile.role !== 'usuario' && profile.role !== 'encargado_turno' && (
-                      <a href="/admin" className="text-gray-700 hover:text-emerald-600 py-2 flex items-center gap-2">
+                      <a href={pendingOrganizerRequests > 0 ? '/admin?tab=solicitudes' : '/admin'} className="text-gray-700 hover:text-emerald-600 py-2 flex items-center gap-2">
                         <BarChart3 className="h-5 w-5" />
                         Administrar
+                        {pendingOrganizerRequests > 0 && (
+                          <span className="bg-mg-gold text-mg-on-gold text-xs font-extrabold rounded-full min-w-5 h-5 px-1 inline-flex items-center justify-center">
+                            {pendingOrganizerRequests}
+                            <span className="sr-only"> solicitudes de organizador por revisar</span>
+                          </span>
+                        )}
                       </a>
                     )}
                     <button
@@ -263,6 +294,10 @@ export const Layout = ({ children }: LayoutProps) => {
               <p className="text-2xl font-black text-white">Mediogol</p>
             </div>
             <p className="text-gray-400 font-medium">Gestión profesional de campeonatos deportivos</p>
+            <a href="/organizar" className="inline-flex items-center gap-2 mt-4 min-h-[44px] px-4 rounded-xl border border-gray-600 text-white font-bold hover:bg-gray-700">
+              <Flag className="h-4 w-4" aria-hidden="true" />
+              ¿Organizas una liga? Súmala a MedioGol
+            </a>
             <p className="text-gray-500 text-sm mt-4">© 2026 Mediogol. Todos los derechos reservados.</p>
           </div>
         </div>
