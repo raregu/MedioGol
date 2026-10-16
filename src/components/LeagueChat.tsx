@@ -79,7 +79,7 @@ export const LeagueChat = ({ data }: { data: LeagueChatData | null }) => {
       <button
         onClick={() => setOpen((v) => !v)}
         aria-label={open ? 'Cerrar asistente de la liga' : 'Abrir asistente de la liga'}
-        className="fixed bottom-6 right-6 z-50 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
+        className="fixed bottom-24 md:bottom-6 right-4 md:right-6 z-50 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
         title="Asistente de la liga"
       >
         {open ? <ChevronDown className="h-6 w-6" /> : <MessageCircle className="h-6 w-6" />}
@@ -89,7 +89,7 @@ export const LeagueChat = ({ data }: { data: LeagueChatData | null }) => {
         <div
           role="dialog"
           aria-label="Asistente de la liga"
-          className="fixed bottom-24 right-4 sm:right-6 z-50 w-[calc(100vw-2rem)] sm:w-96 bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col"
+          className="fixed bottom-40 md:bottom-24 right-4 sm:right-6 z-50 w-[calc(100vw-2rem)] sm:w-96 bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col"
           style={{ height: '560px', maxHeight: 'calc(100vh - 120px)' }}
         >
           <div className="bg-emerald-950 rounded-t-2xl px-4 py-3 flex items-center justify-between">

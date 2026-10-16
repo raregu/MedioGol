@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { Trophy, Search, Users, BarChart3, MessageSquare, LogOut, Menu, X, Bell, Shield, Layers, Flag, Sparkles } from 'lucide-react';
 import { usePendingOrganizerRequests } from '../hooks/useOrganizerRequests';
 import { AdminAssistant } from './AdminAssistant';
+import { MobileTabBar } from './MobileTabBar';
 import { CaptainNotificationsModal } from './CaptainNotificationsModal';
 
 interface LayoutProps {
@@ -70,7 +71,7 @@ export const Layout = ({ children }: LayoutProps) => {
   };
 
   return (
-    <div className="min-h-screen bg-mg-bg">
+    <div className="min-h-screen bg-mg-bg pb-[calc(64px+env(safe-area-inset-bottom))] md:pb-0">
       <nav className="bg-white/80 backdrop-blur-md shadow-lg sticky top-0 z-50 border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-20">
@@ -213,6 +214,9 @@ export const Layout = ({ children }: LayoutProps) => {
               )}
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                aria-expanded={mobileMenuOpen}
+                aria-controls="mobile-menu"
+                aria-label={mobileMenuOpen ? 'Cerrar menú' : 'Abrir menú'}
                 className="p-2 text-gray-700 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all"
               >
                 {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
@@ -221,7 +225,7 @@ export const Layout = ({ children }: LayoutProps) => {
           </div>
 
           {mobileMenuOpen && (
-            <div className="md:hidden py-4 border-t">
+            <div id="mobile-menu" className="md:hidden py-4 border-t max-h-[calc(100dvh-80px-64px)] overflow-y-auto">
               <div className="flex flex-col space-y-3">
                 <a href="/" className="text-gray-700 hover:text-emerald-600 py-2 flex items-center gap-2">
                   <Trophy className="h-5 w-5" />
@@ -302,7 +306,7 @@ export const Layout = ({ children }: LayoutProps) => {
         </div>
       </nav>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
         {children}
       </main>
 
@@ -334,6 +338,17 @@ export const Layout = ({ children }: LayoutProps) => {
           }}
         />
       )}
+      <MobileTabBar
+        profile={profile}
+        menuOpen={mobileMenuOpen}
+        onToggleMenu={() => {
+          setMobileMenuOpen((o) => !o);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        pendingInvitations={pendingInvitations}
+        pendingOrganizerRequests={pendingOrganizerRequests}
+      />
+
       {canUseAssistant && <AdminAssistant open={assistantOpen} onClose={() => setAssistantOpen(false)} />}
     </div>
   );

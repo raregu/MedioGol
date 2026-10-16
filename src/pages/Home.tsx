@@ -10,7 +10,7 @@ import { ChampionshipGrid } from '../components/home/ChampionshipGrid';
 import { TopScorers } from '../components/home/TopScorers';
 import { PlayerStrip } from '../components/home/PlayerStrip';
 import { SectionHeader } from '../components/home/SectionHeader';
-import { OrganizerCta } from '../components/home/OrganizerCta';
+import { OrganizerCta, OrganizerCtaCompact } from '../components/home/OrganizerCta';
 import { useHomeData, usePlayerCareer } from '../hooks/useHomeData';
 import { HomeChampionship } from '../types/home';
 
@@ -26,6 +26,8 @@ export const Home = () => {
   const career = usePlayerCareer(profile?.id);
   const [teamFor, setTeamFor] = useState<HomeChampionship | null>(null);
 
+  // Visitantes y usuarios sin rol de administración ven la invitación a organizar
+  const canAskOrganizer = !profile || profile.role === 'usuario' || profile.role === 'capitan';
   const canCreateTeam = (c: HomeChampionship) => !!profile && (profile.role === 'admin_sistema' || c.admin_id === profile.id);
 
   return (
@@ -34,6 +36,8 @@ export const Home = () => {
         <HomeHero leagues={data?.leagues ?? []} />
 
         {career && <PlayerStrip career={career} />}
+
+        {canAskOrganizer && <OrganizerCtaCompact />}
 
         {status === 'loading' && !data && (
           <div className="flex items-center justify-center py-16" role="status">
@@ -77,7 +81,11 @@ export const Home = () => {
           </>
         )}
 
-        {(!profile || profile.role === 'usuario' || profile.role === 'capitan') && <OrganizerCta />}
+        {canAskOrganizer && (
+          <div className="hidden md:block">
+            <OrganizerCta />
+          </div>
+        )}
       </div>
 
       {teamFor && (
