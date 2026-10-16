@@ -18,6 +18,7 @@ import { MatchSheets } from './pages/MatchSheets';
 import { MatchSheetUpload } from './pages/MatchSheetUpload';
 import { Payments } from './pages/Payments';
 import { Treasury } from './pages/Treasury';
+import { Organize } from './pages/Organize';
 
 function App() {
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
@@ -59,6 +60,7 @@ function App() {
   if (currentPath.startsWith('/papeleta/')) return <MatchSheetUpload />;
   if (currentPath === '/pagos') return <Payments />;
   if (currentPath === '/tesoreria') return <Treasury />;
+  if (currentPath === '/organizar') return <Organize />;
 
   return <Home />;
 }

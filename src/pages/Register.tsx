@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Layout } from '../components/Layout';
+import { safeNext, withNext } from '../utils/safeNext';
 import { Trophy, Mail, Lock, User, AlertCircle } from 'lucide-react';
 
 export const Register = () => {
@@ -24,7 +25,7 @@ export const Register = () => {
 
     try {
       await signUp(email, password, fullName);
-      window.location.href = '/';
+      window.location.href = safeNext();
     } catch (err: unknown) {
       if (err instanceof Error) {
         setError(err.message || 'Error al crear la cuenta. Por favor, intenta de nuevo.');
@@ -125,7 +126,7 @@ export const Register = () => {
           <div className="mt-8 text-center">
             <p className="text-gray-600 font-medium">
               ¿Ya tienes una cuenta?{' '}
-              <a href="/login" className="text-emerald-600 hover:text-emerald-700 font-bold">
+              <a href={withNext('/login')} className="text-emerald-600 hover:text-emerald-700 font-bold">
                 Inicia sesión aquí
               </a>
             </p>

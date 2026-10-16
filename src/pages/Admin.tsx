@@ -6,7 +6,7 @@ import { supabase } from '../lib/supabase';
 import { ChampionshipPayments } from './Payments';
 import { AdminHub, HubLeague } from '../components/admin/AdminHub';
 import { Championship, Team, Match, Sanction, Profile } from '../types/database';
-import { Trophy, Users, Calendar, AlertCircle, Plus, UserCog, CreditCard as Edit, MapPin, Trash2, Phone, Image, FileSpreadsheet, Printer, Camera, Eye, Wallet } from 'lucide-react';
+import { Trophy, Users, Calendar, AlertCircle, Plus, UserCog, CreditCard as Edit, MapPin, Trash2, Phone, Image, FileSpreadsheet, Printer, Camera, Eye, Wallet, Flag } from 'lucide-react';
 import { CreateChampionshipModal } from '../components/admin/CreateChampionshipModal';
 import { EditChampionshipModal } from '../components/admin/EditChampionshipModal';
 import { CreateTeamModal } from '../components/CreateTeamModal';
@@ -19,6 +19,8 @@ import ShiftManagerModal from '../components/admin/ShiftManagerModal';
 import { AssignCaptainModal } from '../components/admin/AssignCaptainModal';
 import { AdvertisementsManagementModal } from '../components/admin/AdvertisementsManagementModal';
 import UploadScheduleModal from '../components/UploadScheduleModal';
+import { OrganizerRequestsPanel } from '../components/admin/OrganizerRequestsPanel';
+import { usePendingOrganizerRequests } from '../hooks/useOrganizerRequests';
 
 interface SportsComplex {
   id: string;
@@ -55,9 +57,14 @@ export const Admin = () => {
   const [users, setUsers] = useState<Profile[]>([]);
   const [sportsComplexes, setSportsComplexes] = useState<SportsComplex[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'championships' | 'teams' | 'matches' | 'sanctions' | 'payments' | 'users' | 'complexes' | 'base_teams' | 'advertisements'>(
-    isAdmin ? 'users' : 'championships'
+  const [activeTab, setActiveTab] = useState<'championships' | 'teams' | 'matches' | 'sanctions' | 'payments' | 'users' | 'complexes' | 'base_teams' | 'advertisements' | 'requests'>(
+    isAdmin ? (new URLSearchParams(window.location.search).get('tab') === 'solicitudes' ? 'requests' : 'users') : 'championships'
   );
+  const pendingRequests = usePendingOrganizerRequests(isAdmin);
+  // El perfil puede cargar después del primer render: aplicar ?tab=solicitudes cuando se sepa el rol
+  useEffect(() => {
+    if (isAdmin && new URLSearchParams(window.location.search).get('tab') === 'solicitudes') setActiveTab('requests');
+  }, [isAdmin]);
   const [showCreateChampionship, setShowCreateChampionship] = useState(false);
   const [showCreateTeam, setShowCreateTeam] = useState(false);
   const [showCreateMatch, setShowCreateMatch] = useState(false);
@@ -357,6 +364,25 @@ export const Admin = () => {
               <div className="border-b">
                 <div className="flex overflow-x-auto">
                   <button
+                    onClick={() => setActiveTab('requests')}
+                    className={`px-6 py-4 font-medium transition-colors whitespace-nowrap ${
+                      activeTab === 'requests'
+                        ? 'text-emerald-600 border-b-2 border-emerald-600'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Flag className="h-5 w-5" />
+                      Solicitudes
+                      {pendingRequests > 0 && (
+                        <span className="bg-mg-gold text-mg-on-gold text-xs font-extrabold rounded-full min-w-5 h-5 px-1 inline-flex items-center justify-center">
+                          {pendingRequests}
+                          <span className="sr-only"> por revisar</span>
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                  <button
                     onClick={() => setActiveTab('users')}
                     className={`px-6 py-4 font-medium transition-colors whitespace-nowrap ${
                       activeTab === 'users'
@@ -412,6 +438,8 @@ export const Admin = () => {
               </div>
 
               <div className="p-6">
+                {activeTab === 'requests' && <OrganizerRequestsPanel />}
+
                 {activeTab === 'users' && (
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">

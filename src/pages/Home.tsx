@@ -10,6 +10,7 @@ import { ChampionshipGrid } from '../components/home/ChampionshipGrid';
 import { TopScorers } from '../components/home/TopScorers';
 import { PlayerStrip } from '../components/home/PlayerStrip';
 import { SectionHeader } from '../components/home/SectionHeader';
+import { OrganizerCta } from '../components/home/OrganizerCta';
 import { useHomeData, usePlayerCareer } from '../hooks/useHomeData';
 import { HomeChampionship } from '../types/home';
 
@@ -75,6 +76,8 @@ export const Home = () => {
             <TopScorers scorers={data.scorers} />
           </>
         )}
+
+        {(!profile || profile.role === 'usuario' || profile.role === 'capitan') && <OrganizerCta />}
       </div>
 
       {teamFor && (
