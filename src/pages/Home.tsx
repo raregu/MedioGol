@@ -11,6 +11,7 @@ import { TopScorers } from '../components/home/TopScorers';
 import { PlayerStrip } from '../components/home/PlayerStrip';
 import { SectionHeader } from '../components/home/SectionHeader';
 import { OrganizerCta, OrganizerCtaCompact } from '../components/home/OrganizerCta';
+import { PlayerCta, PlayerCtaCompact } from '../components/home/PlayerCta';
 import { useHomeData, usePlayerCareer } from '../hooks/useHomeData';
 import { HomeChampionship } from '../types/home';
 
@@ -28,6 +29,8 @@ export const Home = () => {
 
   // Visitantes y usuarios sin rol de administración ven la invitación a organizar
   const canAskOrganizer = !profile || profile.role === 'usuario' || profile.role === 'capitan';
+  // Visitantes y usuarios que todavía no juegan en ningún equipo ven la invitación para jugadores
+  const canAskPlayer = !profile || !career;
   const canCreateTeam = (c: HomeChampionship) => !!profile && (profile.role === 'admin_sistema' || c.admin_id === profile.id);
 
   return (
@@ -37,7 +40,12 @@ export const Home = () => {
 
         {career && <PlayerStrip career={career} />}
 
-        {canAskOrganizer && <OrganizerCtaCompact />}
+        {(canAskOrganizer || canAskPlayer) && (
+          <div className="md:hidden space-y-3">
+            {canAskOrganizer && <OrganizerCtaCompact />}
+            {canAskPlayer && <PlayerCtaCompact loggedIn={!!profile} />}
+          </div>
+        )}
 
         {status === 'loading' && !data && (
           <div className="flex items-center justify-center py-16" role="status">
@@ -81,9 +89,10 @@ export const Home = () => {
           </>
         )}
 
-        {canAskOrganizer && (
-          <div className="hidden md:block">
-            <OrganizerCta />
+        {(canAskOrganizer || canAskPlayer) && (
+          <div className={`hidden md:grid gap-6 ${canAskOrganizer && canAskPlayer ? 'xl:grid-cols-2' : ''}`}>
+            {canAskOrganizer && <OrganizerCta />}
+            {canAskPlayer && <PlayerCta loggedIn={!!profile} />}
           </div>
         )}
       </div>
