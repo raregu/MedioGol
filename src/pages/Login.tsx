@@ -20,7 +20,7 @@ export const Login = () => {
       await signIn(email, password);
       window.location.href = safeNext();
     } catch (err) {
-      setError('Credenciales incorrectas. Por favor, intenta de nuevo.');
+      setError('Correo o contraseña incorrectos. Si no recuerdas tu contraseña, usa «¿Olvidaste tu contraseña?».');
       console.error(err);
     } finally {
       setLoading(false);
@@ -80,6 +80,14 @@ export const Login = () => {
                   className="w-full pl-12 pr-4 py-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all font-medium"
                   placeholder="••••••••"
                 />
+              </div>
+              <div className="mt-2 text-right">
+                <a
+                  href="/recuperar"
+                  className="inline-flex min-h-[44px] items-center text-sm font-bold text-emerald-700 hover:text-emerald-800"
+                >
+                  ¿Olvidaste tu contraseña?
+                </a>
               </div>
             </div>
 

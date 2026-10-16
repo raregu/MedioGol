@@ -115,7 +115,10 @@ Deno.serve(async (req: Request) => {
     const resend = new Resend(RESEND_API_KEY);
 
     const result = await resend.emails.send({
-      from: "Campeonatos <onboarding@resend.dev>",
+      // Remitente del dominio verificado en Resend (secreto EMAIL_FROM); sin él, el remitente de prueba
+      // de Resend, que solo entrega al dueño de la cuenta.
+      from: Deno.env.get("EMAIL_FROM") ?? "MedioGol <onboarding@resend.dev>",
+      reply_to: Deno.env.get("EMAIL_REPLY_TO") ?? "contacto@mediogol.cl",
       to: [email],
       subject: `Invitación: Registra tu equipo "${teamName}" en ${championshipName}`,
       html: emailHtml,

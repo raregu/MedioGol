@@ -324,6 +324,11 @@ export const Layout = ({ children }: LayoutProps) => {
               <Flag className="h-4 w-4" aria-hidden="true" />
               ¿Organizas una liga? Súmala a MedioGol
             </a>
+            <p className="mt-4">
+              <a href="mailto:contacto@mediogol.cl" className="inline-flex min-h-[44px] items-center text-gray-300 font-semibold hover:text-white underline underline-offset-4">
+                contacto@mediogol.cl
+              </a>
+            </p>
             <p className="text-gray-500 text-sm mt-4">© 2026 Mediogol. Todos los derechos reservados.</p>
           </div>
         </div>
