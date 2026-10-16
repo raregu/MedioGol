@@ -62,7 +62,7 @@ const UpcomingRow = ({ m }: { m: HomeMatch }) => (
 );
 
 const Panel = ({ id, title, empty, children, count }: { id: string; title: string; empty: string; count: number; children: ReactNode }) => (
-  <section aria-labelledby={id}>
+  <section aria-labelledby={id} className="min-w-0">
     <SectionHeader id={id} title={title} />
     <div className="bg-mg-surface border border-mg-line rounded-mg-lg overflow-hidden">
       {count === 0 ? <p className="px-5 py-8 text-center text-sm text-mg-muted">{empty}</p> : <ul>{children}</ul>}
@@ -72,7 +72,7 @@ const Panel = ({ id, title, empty, children, count }: { id: string; title: strin
 
 /** Últimos resultados y próximos partidos, lado a lado en escritorio. */
 export const MatchPanels = ({ results, upcoming }: { results: HomeMatch[]; upcoming: HomeMatch[] }) => (
-  <div className="grid gap-6 lg:grid-cols-2">
+  <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
     <Panel id="home-results" title="Últimos resultados" empty="Todavía no hay partidos jugados." count={results.length}>
       {results.map((m) => (
         <ResultRow key={m.id} m={m} />

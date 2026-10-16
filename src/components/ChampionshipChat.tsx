@@ -579,7 +579,7 @@ export const ChampionshipChat = ({ championshipId }: Props) => {
       {/* Botón flotante */}
       <button
         onClick={() => setOpen((v) => !v)}
-        className="fixed bottom-6 right-6 z-50 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
+        className="fixed bottom-24 md:bottom-6 right-4 md:right-6 z-50 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
         title="Chat del campeonato"
       >
         {open ? <ChevronDown className="h-6 w-6" /> : <MessageCircle className="h-6 w-6" />}
@@ -588,7 +588,7 @@ export const ChampionshipChat = ({ championshipId }: Props) => {
       {/* Panel de chat */}
       {open && (
         <div
-          className="fixed bottom-24 right-6 z-50 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col"
+          className="fixed bottom-40 md:bottom-24 right-4 md:right-6 z-50 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col"
           style={{ height: '520px', maxHeight: 'calc(100vh - 120px)' }}
         >
           {/* Header */}
