@@ -13,6 +13,8 @@ import { SectionHeader } from '../components/home/SectionHeader';
 import { OrganizerCta, OrganizerCtaCompact } from '../components/home/OrganizerCta';
 import { PlayerCta, PlayerCtaCompact } from '../components/home/PlayerCta';
 import { useHomeData, usePlayerCareer } from '../hooks/useHomeData';
+import { useAdminOnboarding } from '../hooks/useAdminOnboarding';
+import { AdminOnboardingCard } from '../components/onboarding/AdminOnboarding';
 import { HomeChampionship } from '../types/home';
 
 /**
@@ -26,6 +28,7 @@ export const Home = () => {
   const { data, status, retry } = useHomeData();
   const career = usePlayerCareer(profile?.id);
   const [teamFor, setTeamFor] = useState<HomeChampionship | null>(null);
+  const onboarding = useAdminOnboarding();
 
   // Visitantes y usuarios sin rol de administración ven la invitación a organizar
   const canAskOrganizer = !profile || profile.role === 'usuario' || profile.role === 'capitan';
@@ -37,6 +40,10 @@ export const Home = () => {
     <Layout>
       <div className="space-y-10 font-sans text-mg-ink">
         <HomeHero leagues={data?.leagues ?? []} />
+
+        {onboarding.enabled && onboarding.data && (
+          <AdminOnboardingCard status={onboarding.data} onHide={() => onboarding.setHidden(true)} saving={onboarding.saving} />
+        )}
 
         {career && <PlayerStrip career={career} />}
 
