@@ -15,6 +15,12 @@ export const Layout = ({ children }: LayoutProps) => {
   const { profile, signOut } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(false);
+  // Otros componentes (p. ej. la guía de inicio) pueden abrir el asistente con este evento
+  useEffect(() => {
+    const open = () => setAssistantOpen(true);
+    window.addEventListener('mg:open-assistant', open);
+    return () => window.removeEventListener('mg:open-assistant', open);
+  }, []);
   const canUseAssistant = !!profile && ['admin_sistema', 'admin_campeonato', 'encargado_turno'].includes(profile.role);
   const [pendingInvitations, setPendingInvitations] = useState(0);
   const [pendingNotifications, setPendingNotifications] = useState(0);
