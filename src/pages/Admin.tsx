@@ -5,8 +5,10 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { ChampionshipPayments } from './Payments';
 import { AdminHub, HubLeague } from '../components/admin/AdminHub';
+import { AdminOnboarding } from '../components/onboarding/AdminOnboarding';
+import { OnboardingStepKey, useAdminOnboarding } from '../hooks/useAdminOnboarding';
 import { Championship, Team, Match, Sanction, Profile } from '../types/database';
-import { Trophy, Users, Calendar, AlertCircle, Plus, UserCog, CreditCard as Edit, MapPin, Trash2, Phone, Image, FileSpreadsheet, Printer, Camera, Eye, Wallet, Flag } from 'lucide-react';
+import { Trophy, Users, Calendar, AlertCircle, Plus, UserCog, CreditCard as Edit, MapPin, Trash2, Phone, Image, FileSpreadsheet, Printer, Camera, Eye, Wallet, Flag, Compass } from 'lucide-react';
 import { CreateChampionshipModal } from '../components/admin/CreateChampionshipModal';
 import { EditChampionshipModal } from '../components/admin/EditChampionshipModal';
 import { CreateTeamModal } from '../components/CreateTeamModal';
@@ -79,6 +81,13 @@ export const Admin = () => {
   const [editingComplex, setEditingComplex] = useState<SportsComplex | null>(null);
   const [editingBaseTeam, setEditingBaseTeam] = useState<any | null>(null);
   const [assigningCaptainTeam, setAssigningCaptainTeam] = useState<Team | null>(null);
+  const onboarding = useAdminOnboarding();
+  const { reload: reloadOnboarding } = onboarding;
+
+  // El avance de la guía se recalcula cuando cambian los datos que mide
+  useEffect(() => {
+    reloadOnboarding(true);
+  }, [championships.length, teams.length, matches.length, reloadOnboarding]);
 
   useEffect(() => {
     if (profile) {
@@ -134,8 +143,12 @@ export const Admin = () => {
         // Serie inicial: la de la URL (?championship=) o la única que haya
         const wanted = new URLSearchParams(window.location.search).get('championship');
         if (!selectedChampionship) {
-          if (wanted && data.some((c) => c.id === wanted)) setSelectedChampionship(wanted);
-          else if (data.length === 1) setSelectedChampionship(data[0].id);
+          if (wanted && data.some((c) => c.id === wanted)) {
+            setSelectedChampionship(wanted);
+            // Enlaces directos a una pestaña (?tab=teams|matches|payments), p. ej. desde la guía de inicio
+            const tab = new URLSearchParams(window.location.search).get('tab');
+            if (tab === 'teams' || tab === 'matches' || tab === 'payments') setActiveTab(tab);
+          } else if (data.length === 1) setSelectedChampionship(data[0].id);
         }
       }
     } catch (error) {
@@ -150,6 +163,28 @@ export const Admin = () => {
     setActiveTab('championships');
     window.history.replaceState(null, '', `/admin?championship=${id}`);
     requestAnimationFrame(() => manageRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  };
+
+  /** Abre una serie en una pestaña concreta (lo usa la guía de inicio). */
+  const openChampionshipTab = (id: string, tab: 'teams' | 'matches' | 'payments') => {
+    setSelectedChampionship(id);
+    setActiveTab(tab);
+    window.history.replaceState(null, '', `/admin?championship=${id}&tab=${tab}`);
+    requestAnimationFrame(() => manageRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  };
+
+  const onOnboardingAction = (step: OnboardingStepKey) => {
+    if (step === 'championship') {
+      setShowCreateChampionship(true);
+      return;
+    }
+    const target = selectedChampionship || onboarding.data?.championship_id || championships[0]?.id;
+    if (!target) {
+      setShowCreateChampionship(true);
+      return;
+    }
+    const tab = step === 'teams' || step === 'captain' ? 'teams' : step === 'fees' ? 'payments' : 'matches';
+    openChampionshipTab(target, tab);
   };
 
   const fetchChampionshipData = async (championshipId: string) => {
@@ -340,7 +375,7 @@ export const Admin = () => {
     <ProtectedRoute requiredRole={['admin_sistema', 'admin_campeonato']}>
       <Layout>
         <div className="space-y-8">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <h1 className="text-4xl font-bold text-gray-900 mb-2">Panel de Administración</h1>
               <p className="text-gray-600 text-lg">
@@ -348,6 +383,18 @@ export const Admin = () => {
               </p>
             </div>
             {isChampionshipAdmin && !isAdmin && (
+              <div className="flex flex-wrap items-center gap-2">
+              {onboarding.enabled && onboarding.data?.hidden && (
+                <button
+                  type="button"
+                  onClick={() => onboarding.setHidden(false)}
+                  disabled={onboarding.saving}
+                  className="inline-flex items-center gap-2 min-h-[44px] px-4 rounded-lg border border-mg-line-strong text-mg-ink font-bold text-sm hover:border-mg-pitch hover:text-mg-pitch-deep disabled:opacity-60"
+                >
+                  <Compass className="h-4 w-4" aria-hidden="true" />
+                  Guía de inicio
+                </button>
+              )}
               <button
                 onClick={() => setShowCreateChampionship(true)}
                 className="flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium"
@@ -355,8 +402,19 @@ export const Admin = () => {
                 <Plus className="h-5 w-5" />
                 Crear Campeonato
               </button>
+              </div>
             )}
           </div>
+
+          {!isAdmin && onboarding.enabled && onboarding.data && !onboarding.data.hidden && (
+            <AdminOnboarding
+              status={onboarding.data}
+              onAction={onOnboardingAction}
+              onHide={() => onboarding.setHidden(true)}
+              saving={onboarding.saving}
+              error={onboarding.error}
+            />
+          )}
 
           {/* Vista para Admin Sistema - Solo Usuarios y Complejos */}
           {isAdmin ? (
