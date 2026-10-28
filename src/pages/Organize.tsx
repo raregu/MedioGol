@@ -1,11 +1,11 @@
 import { ReactNode, useEffect, useState } from 'react';
-import { BarChart3, CalendarDays, ClipboardList, QrCode, Wallet } from 'lucide-react';
+import { BarChart3, CalendarDays, CheckCircle2, ClipboardList, QrCode, Wallet } from 'lucide-react';
 import { Layout } from '../components/Layout';
 import { useAuth } from '../contexts/AuthContext';
-import { useMyOrganizerRequest } from '../hooks/useOrganizerRequests';
-import { OrganizerWizard } from '../components/organizer/OrganizerWizard';
-import { OrganizerApproved, OrganizerRequestStatus } from '../components/organizer/OrganizerRequestStatus';
+import { supabase } from '../lib/supabase';
+import { OrganizerApproved } from '../components/organizer/OrganizerRequestStatus';
 import { primaryBtn, secondaryBtn } from '../components/payments/PaymentsUi';
+import { FREE_PLAN } from '../hooks/useOrganizerPlan';
 
 const BENEFITS = [
   { icon: BarChart3, title: 'Tabla y goleadores al día', text: 'Se calculan solos al cargar cada resultado.' },
@@ -15,32 +15,49 @@ const BENEFITS = [
   { icon: QrCode, title: 'Credenciales con QR', text: 'Validación de jugadores en la cancha.' },
 ];
 
-const HOW = ['Cuéntanos de tu liga en 3 pasos (2 minutos).', 'Te contactamos por WhatsApp para conocerte.', 'Activamos tu cuenta y creas tu liga.'];
+const HOW = ['Crea tu cuenta de organizador (gratis, al instante).', 'Crea tu liga y sus series.', 'Carga equipos, fixture y resultados, y comparte el enlace.'];
 
-/** /organizar: pedir acceso de organizador (admin de campeonato) de forma guiada. */
+const FreePlanList = () => (
+  <ul className="space-y-1.5 text-sm">
+    {[
+      `Publica ${FREE_PLAN.leagues} liga con todas sus series.`,
+      `${FREE_PLAN.months} meses gratis desde que creas tu liga.`,
+      `${FREE_PLAN.sheets} papeletas de prueba con lectura automática de goles y tarjetas.`,
+    ].map((t) => (
+      <li key={t} className="flex gap-2 items-start">
+        <CheckCircle2 className="h-4 w-4 text-mg-pitch-deep flex-shrink-0 mt-0.5" aria-hidden="true" />
+        {t}
+      </li>
+    ))}
+  </ul>
+);
+
+/** /organizar: crear o activar una cuenta de organizador con plan Gratis (sin aprobación). */
 export const Organize = () => {
   const { user, profile, loading, refreshProfile } = useAuth();
-  const { status, request, reload } = useMyOrganizerRequest(user?.id);
-  const [formOpen, setFormOpen] = useState(false);
-
+  const [activating, setActivating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const isOrganizer = profile?.role === 'admin_campeonato' || profile?.role === 'admin_sistema';
-  const approvedNow = request?.status === 'approved' && !isOrganizer;
-
-  // Si la aprobaron y el perfil en memoria aún tiene el rol anterior, se renueva la sesión.
-  useEffect(() => {
-    if (approvedNow) refreshProfile().catch((e) => console.error('refreshProfile', e));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [approvedNow]);
 
   useEffect(() => {
     document.title = 'Organiza tu liga · MedioGol';
   }, []);
 
-  const showWizard = !!user && !isOrganizer && status === 'ready' && (!request || formOpen);
-  const next = encodeURIComponent('/organizar');
+  const activate = async () => {
+    setActivating(true);
+    setError(null);
+    const { error: rpcError } = await supabase.rpc('become_organizer');
+    if (rpcError) {
+      setActivating(false);
+      setError(rpcError.message || 'No pudimos activar tu cuenta. Intenta de nuevo.');
+      return;
+    }
+    await refreshProfile().catch((e) => console.error('refreshProfile', e));
+    window.location.href = '/admin';
+  };
 
   let body: ReactNode = null;
-  if (loading || (user && (status === 'loading' || status === 'idle'))) {
+  if (loading) {
     body = (
       <div className="flex justify-center py-12" role="status">
         <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-mg-pitch" aria-hidden="true" />
@@ -49,45 +66,47 @@ export const Organize = () => {
     );
   } else if (!user) {
     body = (
-      <section aria-labelledby="org-login" className="bg-mg-surface border border-mg-line rounded-mg-lg shadow-mg-card p-5 sm:p-6 space-y-4">
-        <h2 id="org-login" className="font-display text-2xl font-extrabold uppercase">
-          Primero, entra con tu cuenta
+      <section aria-labelledby="org-start" className="bg-mg-surface border border-mg-line rounded-mg-lg shadow-mg-card p-5 sm:p-6 space-y-4">
+        <h2 id="org-start" className="font-display text-2xl font-extrabold uppercase">
+          Empieza gratis
         </h2>
-        <p className="text-sm">La solicitud queda asociada a tu cuenta: con ella vas a administrar tu liga cuando la aprobemos.</p>
+        <FreePlanList />
         <div className="flex flex-wrap gap-3">
-          <a href={`/register?next=${next}`} className={primaryBtn}>
-            Crear cuenta gratis
+          <a href={`/register?organizador=1&next=${encodeURIComponent('/admin')}`} className={primaryBtn}>
+            Crear cuenta de organizador
           </a>
-          <a href={`/login?next=${next}`} className={secondaryBtn}>
+          <a href={`/login?next=${encodeURIComponent('/organizar')}`} className={secondaryBtn}>
             Ya tengo cuenta
           </a>
         </div>
       </section>
     );
-  } else if (status === 'error') {
+  } else if (isOrganizer) {
+    body = <OrganizerApproved />;
+  } else if (profile?.role === 'encargado_turno') {
     body = (
-      <div role="alert" className="bg-mg-danger-tint rounded-mg-lg px-5 py-6 flex flex-wrap items-center justify-between gap-4">
-        <p className="font-semibold">No pudimos revisar tu solicitud. Revisa tu conexión.</p>
-        <button type="button" onClick={reload} className={primaryBtn}>
-          Reintentar
+      <p role="status" className="bg-mg-surface border border-mg-line rounded-mg-lg p-5 text-sm">
+        Tu cuenta es de encargado de turno. Si quieres organizar tu propia liga, pide al administrador que cambie tu cuenta.
+      </p>
+    );
+  } else {
+    body = (
+      <section aria-labelledby="org-activate" className="bg-mg-surface border border-mg-line rounded-mg-lg shadow-mg-card p-5 sm:p-6 space-y-4">
+        <h2 id="org-activate" className="font-display text-2xl font-extrabold uppercase">
+          Activa tu cuenta de organizador
+        </h2>
+        <p className="text-sm">Tu cuenta pasa a ser de organizador al instante, con el plan Gratis:</p>
+        <FreePlanList />
+        {error && (
+          <p role="alert" className="bg-mg-danger-tint rounded-mg-md px-4 py-2 text-sm font-semibold">
+            {error}
+          </p>
+        )}
+        <button type="button" onClick={activate} disabled={activating} className={primaryBtn}>
+          {activating ? 'Activando…' : 'Activar gratis'}
         </button>
-      </div>
+      </section>
     );
-  } else if (isOrganizer || request?.status === 'approved') {
-    body = <OrganizerApproved orgName={request?.status === 'approved' ? request.org_name : undefined} />;
-  } else if (showWizard) {
-    body = (
-      <OrganizerWizard
-        defaultName={profile?.full_name ?? ''}
-        onSubmitted={() => {
-          setFormOpen(false);
-          reload();
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }}
-      />
-    );
-  } else if (request) {
-    body = <OrganizerRequestStatus request={request} onChanged={reload} onNewRequest={() => setFormOpen(true)} />;
   }
 
   return (
@@ -97,8 +116,8 @@ export const Organize = () => {
           <p className="mg-label text-mg-pitch-deep">Para organizadores</p>
           <h1 className="font-display text-[40px] sm:text-[52px] leading-none font-extrabold uppercase">Organiza tu liga en MedioGol</h1>
           <p className="text-lg text-mg-muted max-w-prose">
-            Si organizas una liga, un campeonato o administras un recinto, pide tu acceso y gestiona todo desde un solo lugar. Los jugadores y
-            capitanes lo siguen desde el celular.
+            Si organizas una liga o un campeonato, crea tu cuenta gratis y gestiona todo desde un solo lugar. Los jugadores y capitanes lo
+            siguen desde el celular.
           </p>
           <ul className="grid sm:grid-cols-2 gap-3">
             {BENEFITS.map(({ icon: Icon, title, text }) => (

@@ -145,7 +145,7 @@ export const OrganizerApproved = ({ orgName }: { orgName?: string }) => (
       <li>
         Entra a <strong>Administrar</strong>.
       </li>
-      <li>Crea tu liga y sus series, o un campeonato.</li>
+      <li>Crea tu liga y agrega cada categoría como serie.</li>
       <li>Agrega los equipos, programa las fechas y comparte el enlace con los capitanes.</li>
     </ol>
     <a href="/admin" className={primaryBtn}>

@@ -10,7 +10,7 @@ export const OrganizerCta = () => (
           ¿Organizas una liga o un campeonato?
         </h2>
         <p className="text-mg-on-navy-muted mt-1">
-          Súmalo a MedioGol: tabla, goleadores, fixture, papeletas y pagos de los equipos en un solo lugar. Pide tu acceso en 2 minutos.
+          Súmalo a MedioGol: tabla, goleadores, fixture, papeletas y pagos de los equipos en un solo lugar. Crea tu cuenta gratis en 2 minutos.
         </p>
       </div>
     </div>
@@ -18,7 +18,7 @@ export const OrganizerCta = () => (
       href="/organizar"
       className="inline-flex items-center gap-2 min-h-[44px] px-5 rounded-mg-md bg-mg-pitch text-mg-on-pitch font-extrabold text-sm whitespace-nowrap"
     >
-      Solicitar acceso
+      Empieza gratis
       <ArrowRight className="h-4 w-4" aria-hidden="true" />
     </a>
   </section>
@@ -35,7 +35,7 @@ export const OrganizerCtaCompact = () => (
     </span>
     <span className="min-w-0 flex-1">
       <span className="block font-extrabold text-[15px] leading-5">¿Organizas una liga?</span>
-      <span className="block text-[13px] text-mg-muted">Súmala a MedioGol y pide tu acceso</span>
+      <span className="block text-[13px] text-mg-muted">Crea tu cuenta de organizador gratis</span>
     </span>
     <ChevronRight className="h-5 w-5 flex-shrink-0 text-mg-muted" aria-hidden="true" />
   </a>

@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { Profile } from '../types/database';
@@ -8,7 +8,7 @@ interface AuthContextType {
   profile: Profile | null;
   session: Session | null;
   loading: boolean;
-  signUp: (email: string, password: string, fullName: string) => Promise<void>;
+  signUp: (email: string, password: string, fullName: string, options?: { organizer?: boolean }) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   /** Vuelve a leer el perfil y renueva la sesión (por ejemplo, después de un cambio de rol). */
@@ -89,10 +89,33 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signUp = async (email: string, password: string, fullName: string) => {
+  /** Convierte la cuenta en organizador con plan Gratis (RPC) y renueva la sesión para el nuevo rol. */
+  const activateOrganizer = async () => {
+    const { error } = await supabase.rpc('become_organizer');
+    if (error) throw error;
+    const { data } = await supabase.auth.refreshSession();
+    const uid = data.session?.user?.id;
+    if (uid) setProfile(await fetchProfile(uid));
+  };
+
+  // Quien se registró como organizador pero no tenía sesión al registrarse (confirmación por correo)
+  // se activa la primera vez que entra. Una sola vez por carga.
+  const organizerActivation = useRef(false);
+  useEffect(() => {
+    if (!user || !profile || organizerActivation.current) return;
+    if (user.user_metadata?.organizer_signup && profile.role === 'usuario') {
+      organizerActivation.current = true;
+      activateOrganizer().catch((e) => console.error('become_organizer', e));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, profile?.role]);
+
+  const signUp = async (email: string, password: string, fullName: string, options?: { organizer?: boolean }) => {
+    const organizer = !!options?.organizer;
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
+      options: { data: { full_name: fullName, organizer_signup: organizer } },
     });
 
     if (error) throw error;
@@ -107,6 +130,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         });
 
       if (profileError) throw profileError;
+
+      if (organizer && data.session) {
+        organizerActivation.current = true;
+        await activateOrganizer();
+      }
     }
   };
 

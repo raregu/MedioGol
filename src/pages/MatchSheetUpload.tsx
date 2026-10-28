@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import jsQR from 'jsqr';
-import { AlertTriangle, Camera, CheckCircle2, Loader2, Plus, Trash2, Upload } from 'lucide-react';
+import { AlertTriangle, Camera, CheckCircle2, Info, Loader2, Lock, Plus, Trash2, Upload } from 'lucide-react';
 import { Layout } from '../components/Layout';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -48,6 +48,17 @@ const readQrMatchId = async (blob: Blob): Promise<string | null> => {
 
 type Step = 'loading' | 'denied' | 'capture' | 'reading' | 'review' | 'saving' | 'done';
 
+/** Cupo de lectura automática según el plan del organizador (match_sheet_quota). */
+interface SheetQuota {
+  allowed: boolean;
+  plan: 'free' | 'premium';
+  used?: number;
+  limit?: number;
+  counts?: boolean;
+  reason?: 'quota' | 'retries' | 'locked';
+  message?: string;
+}
+
 /**
  * Subir la foto de una papeleta, revisar lo que leyó la IA y confirmar.
  * Se llega desde Administrar → Partidos o escaneando el QR impreso en la papeleta.
@@ -63,6 +74,7 @@ export const MatchSheetUpload = () => {
   const [review, setReview] = useState<ReviewState | null>(null);
   // Morosos: solo aviso para el personal (no bloquea la papeleta)
   const [overdue, setOverdue] = useState<{ team_id: string; overdue: number }[]>([]);
+  const [quota, setQuota] = useState<SheetQuota | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -83,6 +95,13 @@ export const MatchSheetUpload = () => {
         }
         setCtx(c);
         setStep('capture');
+        // Si la función no existe aún (migración sin aplicar) se sigue como antes, sin cupo
+        supabase
+          .rpc('match_sheet_quota', { p_match_id: matchId })
+          .abortSignal(controller.signal)
+          .then(({ data: q }) => {
+            if (!controller.signal.aborted && q) setQuota(q as SheetQuota);
+          });
         supabase
           .rpc('team_overdue', { p_team_ids: [c.home.team_id, c.away.team_id] })
           .abortSignal(controller.signal)
@@ -247,12 +266,47 @@ export const MatchSheetUpload = () => {
           </div>
         )}
 
-        {ctx && (step === 'capture' || step === 'reading') && (
+        {ctx && step === 'capture' && quota && !quota.allowed && (
+          <section aria-labelledby="premium-title" className="bg-mg-surface border border-mg-line rounded-mg-lg p-6 space-y-3">
+            <p className="inline-flex items-center gap-2 rounded-full bg-mg-navy px-3 py-1 text-xs font-extrabold uppercase tracking-wide text-mg-on-navy">
+              <Lock className="h-3.5 w-3.5" aria-hidden="true" /> Función Premium
+            </p>
+            <h2 id="premium-title" className="text-[22px] font-extrabold">
+              {quota.reason === 'locked' ? 'Esta liga está en solo lectura' : quota.reason === 'retries' ? 'Ya se leyó esta papeleta 3 veces' : 'Usaste tus papeletas de prueba'}
+            </h2>
+            <p className="text-sm">{quota.message}</p>
+            {quota.reason !== 'locked' && (
+              <p className="text-sm text-mg-muted">
+                Puedes cargar el resultado, los goles y las tarjetas a mano desde la página del campeonato, pestaña Partidos, con «Registrar Detalles».
+              </p>
+            )}
+            <div className="flex flex-wrap gap-3">
+              {quota.reason !== 'locked' && (
+                <a href={`/championship/${ctx.championship_id}`} className="inline-flex items-center gap-2 min-h-[44px] px-4 rounded-mg-md bg-mg-pitch text-mg-on-pitch font-extrabold text-sm">
+                  Ir al campeonato
+                </a>
+              )}
+              <a href="/admin" className="inline-flex items-center gap-2 min-h-[44px] px-4 rounded-mg-md border border-mg-line-strong font-extrabold text-sm">
+                Volver a Administrar
+              </a>
+            </div>
+          </section>
+        )}
+
+        {ctx && (step === 'capture' || step === 'reading') && !(quota && !quota.allowed) && (
           <section aria-labelledby="capture-title" className="bg-mg-surface border border-mg-line rounded-mg-lg p-6 space-y-5">
             <div>
               <h2 id="capture-title" className="text-[22px] font-extrabold">Sube la foto de la papeleta</h2>
               <p className="text-mg-muted text-sm">Hoja completa, de frente y con buena luz, con las 4 esquinas ■ a la vista. Hasta {MAX_PHOTOS} fotos si usaste más de una hoja.</p>
             </div>
+            {quota?.plan === 'free' && quota.allowed && (
+              <p className="flex gap-2 items-start bg-mg-pitch-tint rounded-mg-md px-4 py-3 text-sm">
+                <Info className="h-5 w-5 flex-none text-mg-pitch-deep" aria-hidden="true" />
+                {quota.counts
+                  ? `Papeleta de prueba: llevas ${quota.used ?? 0} de ${quota.limit ?? 5}. Esta lectura usará 1.`
+                  : 'Este partido ya se leyó: volver a leerlo no gasta otra papeleta de prueba.'}
+              </p>
+            )}
             {ctx.status === 'finished' && (
               <p className="flex gap-2 items-start bg-[#fff4d6] border border-[#e0b84a] rounded-mg-md px-4 py-3 text-sm">
                 <AlertTriangle className="h-5 w-5 flex-none text-mg-gold-ink" aria-hidden="true" />

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Layout } from '../components/Layout';
 import { LeagueCard } from '../components/LeagueCard';
 import { LeagueManageModal } from '../components/admin/LeagueManageModal';
+import { invalidateOrganizerPlan, useOrganizerPlan } from '../hooks/useOrganizerPlan';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { LeagueSummary } from '../types/home';
@@ -34,7 +35,9 @@ export const Leagues = () => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const req = useRef(0);
-  const canCreate = !!profile && ['admin_sistema', 'admin_campeonato'].includes(profile.role);
+  const { leagueLimitReached } = useOrganizerPlan();
+  // Plan Gratis: una liga. El servidor lo valida igual; aquí se evita el intento.
+  const canCreate = !!profile && ['admin_sistema', 'admin_campeonato'].includes(profile.role) && !leagueLimitReached;
 
   useEffect(() => {
     const id = ++req.current;
@@ -77,6 +80,11 @@ export const Leagues = () => {
               <p className="text-gray-600">Competencias con varias series y tabla general por club</p>
             </div>
           </div>
+          {leagueLimitReached && (
+            <p className="text-sm text-gray-600 max-w-xs">
+              Con el plan Gratis publicas una liga. Agrega tus campeonatos como series desde <a href="/admin" className="font-bold text-emerald-700 underline">Administrar</a>.
+            </p>
+          )}
           {canCreate && (
             <button onClick={() => setShowCreate(true)} className="inline-flex items-center gap-2 px-5 py-3 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 shadow">
               <Plus className="h-5 w-5" /> Crear liga
@@ -127,6 +135,7 @@ export const Leagues = () => {
         <LeagueManageModal
           onClose={() => setShowCreate(false)}
           onSaved={(id) => {
+            invalidateOrganizerPlan();
             setShowCreate(false);
             window.history.pushState({}, '', `/league/${id}`);
           }}

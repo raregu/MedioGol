@@ -7,8 +7,11 @@ import { ChampionshipPayments } from './Payments';
 import { AdminHub, HubLeague } from '../components/admin/AdminHub';
 import { AdminOnboarding } from '../components/onboarding/AdminOnboarding';
 import { OnboardingStepKey, useAdminOnboarding } from '../hooks/useAdminOnboarding';
+import { useOrganizerPlan } from '../hooks/useOrganizerPlan';
+import { PlanStatusCard } from '../components/plan/PlanStatusCard';
+import { OrganizerPlansPanel } from '../components/plan/OrganizerPlansPanel';
 import { Championship, Team, Match, Sanction, Profile } from '../types/database';
-import { Trophy, Users, Calendar, AlertCircle, Plus, UserCog, CreditCard as Edit, MapPin, Trash2, Phone, Image, FileSpreadsheet, Printer, Camera, Eye, Wallet, Flag, Compass } from 'lucide-react';
+import { Trophy, Users, Calendar, AlertCircle, Plus, UserCog, CreditCard as Edit, MapPin, Trash2, Phone, Image, FileSpreadsheet, Printer, Camera, Eye, Wallet, Flag, Compass, Crown } from 'lucide-react';
 import { CreateChampionshipModal } from '../components/admin/CreateChampionshipModal';
 import { EditChampionshipModal } from '../components/admin/EditChampionshipModal';
 import { CreateTeamModal } from '../components/CreateTeamModal';
@@ -59,7 +62,7 @@ export const Admin = () => {
   const [users, setUsers] = useState<Profile[]>([]);
   const [sportsComplexes, setSportsComplexes] = useState<SportsComplex[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'championships' | 'teams' | 'matches' | 'sanctions' | 'payments' | 'users' | 'complexes' | 'base_teams' | 'advertisements' | 'requests'>(
+  const [activeTab, setActiveTab] = useState<'championships' | 'teams' | 'matches' | 'sanctions' | 'payments' | 'users' | 'complexes' | 'base_teams' | 'advertisements' | 'requests' | 'plans'>(
     isAdmin ? (new URLSearchParams(window.location.search).get('tab') === 'solicitudes' ? 'requests' : 'users') : 'championships'
   );
   const pendingRequests = usePendingOrganizerRequests(isAdmin);
@@ -82,12 +85,14 @@ export const Admin = () => {
   const [editingBaseTeam, setEditingBaseTeam] = useState<any | null>(null);
   const [assigningCaptainTeam, setAssigningCaptainTeam] = useState<Team | null>(null);
   const onboarding = useAdminOnboarding();
+  const { plan: organizerPlan, reload: reloadPlan } = useOrganizerPlan();
   const { reload: reloadOnboarding } = onboarding;
 
   // El avance de la guía se recalcula cuando cambian los datos que mide
   useEffect(() => {
     reloadOnboarding(true);
-  }, [championships.length, teams.length, matches.length, reloadOnboarding]);
+    reloadPlan(true);
+  }, [championships.length, teams.length, matches.length, reloadOnboarding, reloadPlan]);
 
   useEffect(() => {
     if (profile) {
@@ -406,6 +411,8 @@ export const Admin = () => {
             )}
           </div>
 
+          {!isAdmin && organizerPlan && <PlanStatusCard plan={organizerPlan} />}
+
           {!isAdmin && onboarding.enabled && onboarding.data && !onboarding.data.hidden && (
             <AdminOnboarding
               status={onboarding.data}
@@ -421,6 +428,19 @@ export const Admin = () => {
             <div className="bg-white rounded-xl shadow-md">
               <div className="border-b">
                 <div className="flex overflow-x-auto">
+                  <button
+                    onClick={() => setActiveTab('plans')}
+                    className={`px-6 py-4 font-medium transition-colors whitespace-nowrap ${
+                      activeTab === 'plans'
+                        ? 'text-emerald-600 border-b-2 border-emerald-600'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Crown className="h-5 w-5" />
+                      Organizadores
+                    </div>
+                  </button>
                   <button
                     onClick={() => setActiveTab('requests')}
                     className={`px-6 py-4 font-medium transition-colors whitespace-nowrap ${
@@ -497,6 +517,7 @@ export const Admin = () => {
 
               <div className="p-6">
                 {activeTab === 'requests' && <OrganizerRequestsPanel />}
+                {activeTab === 'plans' && <OrganizerPlansPanel />}
 
                 {activeTab === 'users' && (
                   <div className="space-y-4">
