@@ -70,15 +70,34 @@ const Panel = ({ id, title, empty, children, count }: { id: string; title: strin
   </section>
 );
 
+interface MatchPanelsProps {
+  results: HomeMatch[];
+  upcoming: HomeMatch[];
+  /** Prefijo de los id de los títulos (para usar el bloque más de una vez en la página) */
+  idPrefix?: string;
+  resultsTitle?: string;
+  upcomingTitle?: string;
+  resultsEmpty?: string;
+  upcomingEmpty?: string;
+}
+
 /** Últimos resultados y próximos partidos, lado a lado en escritorio. */
-export const MatchPanels = ({ results, upcoming }: { results: HomeMatch[]; upcoming: HomeMatch[] }) => (
+export const MatchPanels = ({
+  results,
+  upcoming,
+  idPrefix = 'home',
+  resultsTitle = 'Últimos resultados',
+  upcomingTitle = 'Próximos partidos',
+  resultsEmpty = 'Todavía no hay partidos jugados.',
+  upcomingEmpty = 'No hay partidos programados por ahora.',
+}: MatchPanelsProps) => (
   <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-    <Panel id="home-results" title="Últimos resultados" empty="Todavía no hay partidos jugados." count={results.length}>
+    <Panel id={`${idPrefix}-results`} title={resultsTitle} empty={resultsEmpty} count={results.length}>
       {results.map((m) => (
         <ResultRow key={m.id} m={m} />
       ))}
     </Panel>
-    <Panel id="home-upcoming" title="Próximos partidos" empty="No hay partidos programados por ahora." count={upcoming.length}>
+    <Panel id={`${idPrefix}-upcoming`} title={upcomingTitle} empty={upcomingEmpty} count={upcoming.length}>
       {upcoming.map((m) => (
         <UpcomingRow key={m.id} m={m} />
       ))}
