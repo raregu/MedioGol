@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { Profile } from '../../types/database';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { X, Upload, File, Image as ImageIcon } from 'lucide-react';
+import { X, Upload, File, Image as ImageIcon, Trophy } from 'lucide-react';
+import { invalidateOrganizerPlan, useOrganizerPlan } from '../../hooks/useOrganizerPlan';
 
 interface CreateChampionshipModalProps {
   onClose: () => void;
@@ -28,6 +29,34 @@ export const CreateChampionshipModal = ({ onClose, onSuccess }: CreateChampionsh
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState('');
   const [error, setError] = useState<string | null>(null);
+  // Liga a la que pertenece (serie). En plan Gratis es obligatoria.
+  const { isFree } = useOrganizerPlan();
+  const [myLeagues, setMyLeagues] = useState<{ id: string; name: string }[] | null>(null);
+  const [leagueId, setLeagueId] = useState('');
+  const [seriesName, setSeriesName] = useState('');
+
+  useEffect(() => {
+    if (!profile?.id) return;
+    let active = true;
+    supabase
+      .from('leagues')
+      .select('id, name')
+      .eq('admin_id', profile.id)
+      .order('name')
+      .limit(50)
+      .then(({ data }) => {
+        if (!active) return;
+        const list = (data || []) as { id: string; name: string }[];
+        setMyLeagues(list);
+        if (list.length === 1) setLeagueId(list[0].id);
+      });
+    return () => {
+      active = false;
+    };
+  }, [profile?.id]);
+
+  const mustPickLeague = isFree;
+  const noLeagueYet = mustPickLeague && myLeagues !== null && myLeagues.length === 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,8 +67,18 @@ export const CreateChampionshipModal = ({ onClose, onSuccess }: CreateChampionsh
       let image_url = null;
       let rules_pdf_url = null;
 
+      if (mustPickLeague && !leagueId) throw new Error('Elige la liga a la que pertenece este campeonato.');
+      let displayOrder = 0;
+      if (leagueId) {
+        const { count } = await supabase.from('championships').select('id', { count: 'exact', head: true }).eq('league_id', leagueId);
+        displayOrder = (count ?? 0) + 1;
+      }
+
       setUploadProgress('Creando campeonato...');
       const insertData: any = {
+        league_id: leagueId || null,
+        series_name: leagueId ? seriesName.trim() || formData.name.trim() : null,
+        display_order: displayOrder,
         name: formData.name,
         sport: formData.sport,
         venue: formData.venue,
@@ -109,6 +148,7 @@ export const CreateChampionshipModal = ({ onClose, onSuccess }: CreateChampionsh
       }
 
       setUploadProgress('');
+      invalidateOrganizerPlan();
       onSuccess();
       onClose();
     } catch (err: any) {
@@ -132,7 +172,60 @@ export const CreateChampionshipModal = ({ onClose, onSuccess }: CreateChampionsh
           </button>
         </div>
 
+        {noLeagueYet ? (
+          <div className="p-6 space-y-4">
+            <div className="flex gap-3 items-start rounded-lg bg-emerald-50 border border-emerald-200 p-4">
+              <Trophy className="h-6 w-6 text-emerald-700 flex-shrink-0" aria-hidden="true" />
+              <div className="text-sm text-gray-800 space-y-1">
+                <p className="font-bold">Primero crea tu liga</p>
+                <p>Con el plan Gratis publicas una liga y cada campeonato o categoría se agrega como una serie de esa liga.</p>
+              </div>
+            </div>
+            <a href="/leagues" className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium">
+              Crear mi liga
+            </a>
+          </div>
+        ) : (
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          {myLeagues && myLeagues.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 rounded-lg border border-emerald-200 bg-emerald-50/50 p-4">
+              <div>
+                <label htmlFor="champ-league" className="block text-sm font-medium text-gray-700 mb-2">
+                  Liga {mustPickLeague ? '*' : '(opcional)'}
+                </label>
+                <select
+                  id="champ-league"
+                  value={leagueId}
+                  required={mustPickLeague}
+                  onChange={(e) => setLeagueId(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-white"
+                >
+                  {!mustPickLeague && <option value="">Sin liga (campeonato suelto)</option>}
+                  {mustPickLeague && !leagueId && <option value="">Elige tu liga</option>}
+                  {myLeagues.map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {leagueId && (
+                <div>
+                  <label htmlFor="champ-series" className="block text-sm font-medium text-gray-700 mb-2">
+                    Nombre de la serie
+                  </label>
+                  <input
+                    id="champ-series"
+                    type="text"
+                    value={seriesName}
+                    onChange={(e) => setSeriesName(e.target.value)}
+                    placeholder="Ej: Senior, Primera, Sub-15"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-white"
+                  />
+                </div>
+              )}
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Administrador del Campeonato
@@ -366,6 +459,7 @@ export const CreateChampionshipModal = ({ onClose, onSuccess }: CreateChampionsh
             </button>
           </div>
         </form>
+        )}
       </div>
     </div>
   );
