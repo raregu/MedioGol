@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { FollowLeagueButton } from '../components/follow/FollowLeagueButton';
 import { Layout } from '../components/Layout';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -217,6 +218,7 @@ export const LeagueDetail = () => {
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
+              <FollowLeagueButton leagueId={league.id} seriesIds={series.map((x) => x.id)} />
               {league.facebook_page_url && (
                 <a href={league.facebook_page_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-white text-emerald-950 font-bold text-sm hover:bg-emerald-50">
                   <Facebook className="h-4 w-4" /> Facebook

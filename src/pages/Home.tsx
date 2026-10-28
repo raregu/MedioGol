@@ -15,6 +15,7 @@ import { PlayerCta, PlayerCtaCompact } from '../components/home/PlayerCta';
 import { useHomeData, usePlayerCareer } from '../hooks/useHomeData';
 import { useAdminOnboarding } from '../hooks/useAdminOnboarding';
 import { AdminOnboardingCard } from '../components/onboarding/AdminOnboarding';
+import { FollowingSection } from '../components/home/FollowingSection';
 import { HomeChampionship } from '../types/home';
 
 /**
@@ -46,6 +47,8 @@ export const Home = () => {
         )}
 
         {career && <PlayerStrip career={career} />}
+
+        {profile && <FollowingSection />}
 
         {(canAskOrganizer || canAskPlayer) && (
           <div className="md:hidden space-y-3">

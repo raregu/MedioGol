@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { FollowButton } from '../components/follow/FollowButton';
 import { Layout } from '../components/Layout';
 import { supabase } from '../lib/supabase';
 import { Championship, Match, Team, TeamStanding, PlayoffConfig, PlayoffMatch, Advertisement, Sponsor, League } from '../types/database';
@@ -533,6 +534,9 @@ export const ChampionshipDetail = () => {
                 <span className="inline-block px-2 py-0.5 bg-white/20 rounded-full text-xs font-medium capitalize mt-1">
                   {championship.sport}
                 </span>
+              </div>
+              <div className="flex-shrink-0 self-start">
+                <FollowButton championshipId={championship.id} tone="onDark" />
               </div>
             </div>
 
