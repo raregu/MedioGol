@@ -225,6 +225,19 @@ Deno.serve(async (req: Request) => {
   const admin = createClient(supabaseUrl, serviceKey);
   runInBackground(purgeOldSheetPhotos(admin));
 
+  // Plan del organizador: en Gratis hay 5 papeletas de prueba (y solo lectura si venció el periodo gratis).
+  // Se valida antes de llamar a la IA; la lectura exitosa queda en match_sheets y es lo que se cuenta.
+  const { data: quota, error: quotaError } = await userClient.rpc("match_sheet_quota", { p_match_id: matchId });
+  if (quotaError) {
+    // Sin la migración de planes la función no existe: se sigue sin cupo (comportamiento anterior)
+    if (quotaError.code !== "PGRST202" && quotaError.code !== "42883") {
+      console.error("match_sheet_quota", quotaError);
+      return json({ error: "No se pudo revisar el plan de la liga." }, 500);
+    }
+  } else if (quota && quota.allowed === false) {
+    return json({ error: quota.message || "La lectura automática de papeletas es una función Premium.", reason: quota.reason }, 402);
+  }
+
   // Límite de uso por usuario (controla costos)
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const { count } = await admin
