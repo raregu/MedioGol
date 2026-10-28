@@ -2,7 +2,10 @@ import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Layout } from '../components/Layout';
 import { safeNext, withNext } from '../utils/safeNext';
-import { Trophy, Mail, Lock, User, AlertCircle } from 'lucide-react';
+import { Trophy, Mail, Lock, User, AlertCircle, Flag, Users } from 'lucide-react';
+import { FREE_PLAN } from '../hooks/useOrganizerPlan';
+
+type AccountType = 'player' | 'organizer';
 
 export const Register = () => {
   const { signUp } = useAuth();
@@ -11,6 +14,11 @@ export const Register = () => {
   const [fullName, setFullName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  // /register?organizador=1 (desde "Organiza tu liga") llega con la opción de organizador elegida
+  const [accountType, setAccountType] = useState<AccountType>(() =>
+    new URLSearchParams(window.location.search).get('organizador') === '1' ? 'organizer' : 'player'
+  );
+  const isOrganizer = accountType === 'organizer';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,8 +32,8 @@ export const Register = () => {
     }
 
     try {
-      await signUp(email, password, fullName);
-      window.location.href = safeNext();
+      await signUp(email, password, fullName, { organizer: isOrganizer });
+      window.location.href = safeNext(isOrganizer ? '/admin' : '/');
     } catch (err: unknown) {
       if (err instanceof Error) {
         setError(err.message || 'Error al crear la cuenta. Por favor, intenta de nuevo.');
@@ -58,6 +66,45 @@ export const Register = () => {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
+            <fieldset>
+              <legend className="block text-sm font-bold text-gray-700 mb-2">¿Para qué usarás MedioGol?</legend>
+              <div className="grid grid-cols-2 gap-3">
+                {([
+                  { value: 'player' as const, icon: Users, title: 'Juego o soy capitán', text: 'Sigo mi equipo y mis estadísticas' },
+                  { value: 'organizer' as const, icon: Flag, title: 'Organizo una liga', text: 'Administro campeonatos y resultados' },
+                ]).map(({ value, icon: Icon, title, text }) => (
+                  <label
+                    key={value}
+                    className={`flex flex-col gap-1 rounded-xl border-2 p-3 cursor-pointer transition-colors focus-within:outline focus-within:outline-2 focus-within:outline-emerald-600 ${
+                      accountType === value ? 'border-emerald-600 bg-emerald-50' : 'border-gray-200 hover:border-emerald-300'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="accountType"
+                      value={value}
+                      checked={accountType === value}
+                      onChange={() => setAccountType(value)}
+                      className="sr-only"
+                    />
+                    <Icon className={`h-5 w-5 ${accountType === value ? 'text-emerald-700' : 'text-gray-400'}`} aria-hidden="true" />
+                    <span className="font-bold text-sm text-gray-900">{title}</span>
+                    <span className="text-xs text-gray-600">{text}</span>
+                  </label>
+                ))}
+              </div>
+              {isOrganizer && (
+                <div className="mt-3 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-gray-800">
+                  <p className="font-bold text-emerald-800 mb-1">Plan Gratis para organizadores</p>
+                  <ul className="list-disc pl-5 space-y-0.5">
+                    <li>Publica {FREE_PLAN.leagues} liga con todas sus series.</li>
+                    <li>{FREE_PLAN.months} meses gratis desde que creas tu liga.</li>
+                    <li>{FREE_PLAN.sheets} papeletas de prueba con lectura automática.</li>
+                  </ul>
+                </div>
+              )}
+            </fieldset>
+
             <div>
               <label htmlFor="fullName" className="block text-sm font-bold text-gray-700 mb-2">
                 Nombre completo
@@ -119,7 +166,7 @@ export const Register = () => {
               disabled={loading}
               className="w-full bg-gradient-to-r from-emerald-500 to-emerald-700 text-white py-4 rounded-xl hover:from-emerald-600 hover:to-emerald-800 transition-all font-bold text-lg disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transform hover:scale-[1.02]"
             >
-              {loading ? 'Creando cuenta...' : 'Crear Cuenta'}
+              {loading ? 'Creando cuenta...' : isOrganizer ? 'Crear cuenta de organizador' : 'Crear Cuenta'}
             </button>
           </form>
 
