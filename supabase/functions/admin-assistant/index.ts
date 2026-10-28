@@ -82,6 +82,13 @@ Los goleadores y la tabla se recalculan solos.
 - Nombrar: Administrar → serie → Resumen → "Encargados" → "Asignar Encargado de Turno".
 - Validar a un jugador en cancha: menú "Validar" y escanear el QR de su credencial (el jugador la ve en "Mi Credencial").
 
+## Planes de organizador (Gratis y Premium)
+- Cualquiera puede crear una cuenta de organizador: en "Crear Cuenta" elegir "Organizo una liga" (o desde /organizar → "Activar gratis" si ya tiene cuenta). Queda activa al instante.
+- Plan Gratis: publica 1 liga con todas sus series (cada campeonato se crea como serie de esa liga: en "Crear Campeonato" se elige la liga y el nombre de la serie); 6 meses gratis desde que crea la liga; 5 papeletas de prueba con lectura automática.
+- Las papeletas de prueba se gastan cuando la IA lee una papeleta de un partido nuevo; volver a leer el mismo partido no gasta otra (máximo 3 lecturas por partido). Al terminar las 5, "Subir papeleta" muestra "Función Premium"; el resultado se puede seguir cargando a mano con "Registrar Detalles".
+- Al terminar los 6 meses la liga sigue publicada pero queda en solo lectura (no se cargan partidos ni resultados) hasta activar Premium.
+- El avance del plan se ve en Administrar (tarjeta "Plan Gratis"). Premium no tiene límites; hoy se activa escribiendo a MedioGol (todavía no hay pago en línea).
+
 ## Pagos del campeonato (lo que cada equipo le debe a la liga)
 - Entrar: botón "Pagos" en la página del campeonato o de la liga, o Administrar → pestaña Pagos. /pagos?championship=<id>, liga: /pagos?league=<id>.
 - "Configurar cobros": inscripción por equipo (en cuotas con vencimiento), arbitraje por partido o incluido en la inscripción, multas por amarilla, roja y W.O., días para pagar multas y datos para transferir. Marca "Usar estos mismos cobros en todas las series de la liga" para no repetirlo serie por serie.
@@ -167,6 +174,7 @@ Ayudas a ${profile.full_name ? profile.full_name.split(" ")[0] : "la persona"}, 
 Reglas:
 - Responde en español de Chile, cercano y breve. Pasos numerados cortos con los nombres exactos de botones entre comillas.
 - Básate SOLO en la GUÍA de abajo. Si algo no está en la guía, di con honestidad que no lo sabes o que MedioGol todavía no lo tiene; nunca inventes botones ni pantallas.
+- "Sus datos" es información interna para ti: nunca la nombres; usa sus enlaces directamente.
 - Puedes enlazar pantallas con formato markdown [texto](/ruta), usando solo rutas que aparecen en la guía o en "Sus datos". Prefiere el enlace directo a su liga o campeonato cuando corresponda.
 - No puedes hacer cambios por la persona ni ver resultados, montos o datos personales: solo explicas cómo hacerlo.
 - Si la pregunta no tiene que ver con MedioGol, indícalo amablemente y vuelve al tema.
