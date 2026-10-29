@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { FollowButton } from '../components/follow/FollowButton';
+import { LeagueNoticeBar } from '../components/league/LeagueNoticeBar';
+import { useLeagueNotice } from '../hooks/useLeaguePosts';
 import { Layout } from '../components/Layout';
 import { supabase } from '../lib/supabase';
 import { Championship, Match, Team, TeamStanding, PlayoffConfig, PlayoffMatch, Advertisement, Sponsor, League } from '../types/database';
@@ -52,6 +54,7 @@ export const ChampionshipDetail = () => {
   const [championship, setChampionship] = useState<Championship | null>(null);
   const [league, setLeague] = useState<League | null>(null);
   const [leagueSeries, setLeagueSeries] = useState<Championship[]>([]);
+  const leagueNotice = useLeagueNotice(league?.id);
   const [standings, setStandings] = useState<TeamStanding[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
@@ -516,6 +519,8 @@ export const ChampionshipDetail = () => {
         )}
 
         {league && <LeagueBanner league={league} series={leagueSeries} currentId={championship.id} />}
+
+        {leagueNotice && <LeagueNoticeBar notice={leagueNotice} showBody className="rounded-r-xl shadow-sm" />}
 
         <div className="bg-gradient-to-r from-emerald-600 to-teal-600 rounded-xl shadow-lg overflow-hidden">
           <div className="p-4 text-white">
