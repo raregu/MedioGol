@@ -1,6 +1,8 @@
 import { Bell, ChevronRight, Search, Trophy } from 'lucide-react';
 import { useFollowFeed, useFollows } from '../../hooks/useFollows';
 import { MatchPanels } from './MatchPanels';
+import { useMyLeagueNotices } from '../../hooks/useLeaguePosts';
+import { LeagueNoticeBar } from '../league/LeagueNoticeBar';
 
 /**
  * Inicio de un usuario con sesión: primero lo que sigue (campeonatos, resultados y próximos
@@ -9,6 +11,8 @@ import { MatchPanels } from './MatchPanels';
 export const FollowingSection = () => {
   const { enabled, count } = useFollows();
   const { feed, status } = useFollowFeed();
+  // Avisos vigentes de las ligas que sigo (se recalcula al seguir o dejar de seguir)
+  const notices = useMyLeagueNotices(enabled && count > 0, count);
 
   if (!enabled) return null;
 
@@ -52,6 +56,15 @@ export const FollowingSection = () => {
           {feed.championships.length} {feed.championships.length === 1 ? 'campeonato' : 'campeonatos'}
         </span>
       </div>
+      {notices.length > 0 && (
+        <ul aria-label="Avisos de las ligas que sigues" className="space-y-2">
+          {notices.map((n) => (
+            <li key={n.id}>
+              <LeagueNoticeBar notice={n} showLeague className="rounded-r-mg-md" />
+            </li>
+          ))}
+        </ul>
+      )}
       <nav aria-label="Campeonatos que sigues" className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
         {feed.championships.map((c) => (
           <a
