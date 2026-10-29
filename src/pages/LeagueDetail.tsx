@@ -18,6 +18,7 @@ import {
 } from '../utils/leagueStandings';
 import { LeagueManageModal } from '../components/admin/LeagueManageModal';
 import { LeagueChat } from '../components/LeagueChat';
+import { LeagueWall } from '../components/league/LeagueWall';
 import { fetchAllRows } from '../utils/fetchAll';
 import {
   AlertCircle,
@@ -269,6 +270,8 @@ export const LeagueDetail = () => {
             ))}
           </nav>
         </section>
+
+        <LeagueWall leagueId={league.id} canManage={canManage} />
 
         {series.length === 0 && (
           <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-600">

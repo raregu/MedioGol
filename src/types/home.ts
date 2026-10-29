@@ -24,6 +24,23 @@ export interface LeagueSummary {
   series: LeagueSummarySeries[];
   club_count: number;
   top: LeagueSummaryTop[];
+  /** Aviso vigente del muro de la liga (null si no hay). Ausente si la migración no está aplicada. */
+  notice?: LeagueNotice | null;
+}
+
+export type LeagueNoticeKind = 'aviso' | 'suspension' | 'horario';
+
+/** Aviso del muro de una liga (supabase/migrations/20261029120000_league_posts.sql). */
+export interface LeagueNotice {
+  id: string;
+  league_id: string;
+  kind: LeagueNoticeKind;
+  title: string;
+  body: string | null;
+  pinned: boolean;
+  created_at: string;
+  /** Solo en my_league_notices */
+  league_name?: string | null;
 }
 
 /** Fila de `home_top_scorers`. */

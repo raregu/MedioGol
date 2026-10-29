@@ -1,5 +1,6 @@
 import { ArrowRight, Trophy } from 'lucide-react';
 import { LeagueSummary } from '../types/home';
+import { LeagueNoticeBar } from './league/LeagueNoticeBar';
 
 /**
  * Tarjeta de una liga. Es solo presentación: los datos (series, nº de clubes y top 3 de la
@@ -35,6 +36,7 @@ export const LeagueCard = ({ league }: { league: LeagueSummary }) => (
         <ArrowRight className="h-4 w-4" aria-hidden="true" />
       </a>
     </div>
+    {league.notice && <LeagueNoticeBar notice={league.notice} />}
     <div className="px-5 sm:px-6 py-5 grid gap-6 sm:grid-cols-2 flex-1">
       <div>
         <p className="mg-label text-mg-muted mb-3">Tabla general{league.phase_name ? ` · ${league.phase_name}` : ''}</p>
