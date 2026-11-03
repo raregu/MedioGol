@@ -16,6 +16,9 @@ import { useHomeData, usePlayerCareer } from '../hooks/useHomeData';
 import { useAdminOnboarding } from '../hooks/useAdminOnboarding';
 import { AdminOnboardingCard } from '../components/onboarding/AdminOnboarding';
 import { FollowingSection } from '../components/home/FollowingSection';
+import { HomeViewToggle } from '../components/home/HomeViewToggle';
+import { useFollows } from '../hooks/useFollows';
+import { useHomeView } from '../hooks/useHomeView';
 import { HomeChampionship } from '../types/home';
 
 /**
@@ -26,7 +29,11 @@ import { HomeChampionship } from '../types/home';
  */
 export const Home = () => {
   const { profile } = useAuth();
-  const { data, status, retry } = useHomeData();
+  const follows = useFollows();
+  const { view, setView, available } = useHomeView(follows);
+  // El Inicio general solo se pide en la vista "Todo"
+  const { data, status, retry } = useHomeData(view === 'all');
+  const showAll = view === 'all';
   const career = usePlayerCareer(profile?.id);
   const [teamFor, setTeamFor] = useState<HomeChampionship | null>(null);
   const onboarding = useAdminOnboarding();
@@ -48,7 +55,15 @@ export const Home = () => {
 
         {career && <PlayerStrip career={career} />}
 
-        {profile && <FollowingSection />}
+        {available && view !== 'pending' && <HomeViewToggle view={view} onChange={setView} />}
+
+        {view === 'pending' && (
+          <div className="h-24 rounded-mg-lg bg-mg-surface-2 animate-pulse" role="status" aria-label="Cargando lo que sigues" />
+        )}
+
+        {/* "Siguiendo": solo lo que sigo. En "Todo", si no sigue nada, la invitación a seguir */}
+        {view === 'following' && <FollowingSection full />}
+        {showAll && profile && follows.settled && follows.count === 0 && <FollowingSection />}
 
         {(canAskOrganizer || canAskPlayer) && (
           <div className="md:hidden space-y-3">
@@ -57,14 +72,14 @@ export const Home = () => {
           </div>
         )}
 
-        {status === 'loading' && !data && (
+        {showAll && status === 'loading' && !data && (
           <div className="flex items-center justify-center py-16" role="status">
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-mg-pitch" aria-hidden="true" />
             <span className="sr-only">Cargando…</span>
           </div>
         )}
 
-        {status === 'error' && !data && (
+        {showAll && status === 'error' && !data && (
           <div role="alert" className="bg-mg-danger-tint text-mg-ink rounded-mg-lg px-5 py-6 flex flex-wrap items-center justify-between gap-4">
             <p className="font-semibold">No pudimos cargar los partidos y las ligas. Revisa tu conexión.</p>
             <button
@@ -78,7 +93,7 @@ export const Home = () => {
           </div>
         )}
 
-        {data && (
+        {showAll && data && (
           <>
             <MatchPanels results={data.results} upcoming={data.upcoming} />
 
