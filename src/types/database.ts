@@ -73,6 +73,8 @@ export interface Profile {
   fecha_ultimo_cambio_foto?: string;
   qr_token?: string;
   fecha_primer_partido?: string;
+  /** Vista del Inicio elegida por el usuario (migración 20261103120000). null = automática */
+  home_view?: 'following' | 'all' | null;
 }
 
 export interface PlayerCredential {
