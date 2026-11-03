@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { HomeMatch } from '../types/home';
+import { HomeMatch, HomeScorer } from '../types/home';
 
 /**
  * Campeonatos que sigue el usuario conectado. Un solo almacén por pestaña: el botón "Seguir"
  * de cualquier pantalla y la sección del Inicio comparten el mismo estado sin volver a consultar.
  */
-type Store = { userId: string | null; ids: Set<string>; loaded: boolean; version: number };
-let store: Store = { userId: null, ids: new Set(), loaded: false, version: 0 };
+type Store = { userId: string | null; ids: Set<string>; loaded: boolean; failed: boolean; version: number };
+let store: Store = { userId: null, ids: new Set(), loaded: false, failed: false, version: 0 };
 const listeners = new Set<() => void>();
 const emit = () => {
   store = { ...store, version: store.version + 1 };
@@ -22,7 +22,7 @@ let inflight: Promise<void> | null = null;
 
 const loadIds = (userId: string) => {
   if (store.userId === userId && (store.loaded || inflight)) return inflight ?? Promise.resolve();
-  store = { userId, ids: new Set(), loaded: false, version: store.version };
+  store = { userId, ids: new Set(), loaded: false, failed: false, version: store.version };
   inflight = (async () => {
     const { data, error } = await supabase.from('championship_follows').select('championship_id').eq('user_id', userId).limit(200);
     inflight = null;
@@ -30,6 +30,8 @@ const loadIds = (userId: string) => {
     if (error) {
       // Sin la migración la tabla no existe: los botones simplemente no se muestran
       console.error('championship_follows', error);
+      store.failed = true;
+      emit();
       return;
     }
     store.ids = new Set((data || []).map((r) => r.championship_id as string));
@@ -98,7 +100,16 @@ export const useFollows = () => {
     [userId]
   );
 
-  return { enabled: !!userId && snap.loaded, loggedIn: !!userId, isFollowing, toggle, setLeague, count: snap.ids.size };
+  return {
+    enabled: !!userId && snap.loaded,
+    /** Ya se sabe qué sigue el usuario (o no se pudo saber): sirve para decidir la vista del Inicio */
+    settled: !userId || (snap.userId === userId && (snap.loaded || snap.failed)),
+    loggedIn: !!userId,
+    isFollowing,
+    toggle,
+    setLeague,
+    count: snap.ids.size,
+  };
 };
 
 export interface FollowedChampionship {
@@ -113,6 +124,10 @@ export interface FollowFeed {
   championships: FollowedChampionship[];
   results: HomeMatch[];
   upcoming: HomeMatch[];
+  /** Ids de las ligas que sigo (migración 20261103120000; ausente si no está aplicada) */
+  leagues?: string[];
+  /** Goleadores de lo que sigo (migración 20261103120000) */
+  scorers?: HomeScorer[];
 }
 
 let feedCache: { userId: string; at: number; data: FollowFeed } | null = null;
