@@ -1,16 +1,47 @@
+import { useEffect, useState } from 'react';
 import { Bell, ChevronRight, Search, Trophy } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
+import { LeagueSummary } from '../../types/home';
+import { LeagueCard } from '../LeagueCard';
+import { SectionHeader } from './SectionHeader';
+import { TopScorers } from './TopScorers';
 import { useFollowFeed, useFollows } from '../../hooks/useFollows';
 import { MatchPanels } from './MatchPanels';
 import { useMyLeagueNotices } from '../../hooks/useLeaguePosts';
 import { LeagueNoticeBar } from '../league/LeagueNoticeBar';
 
+/** Tarjetas (tabla general, series y aviso) de las ligas que sigo: una llamada a league_summaries. */
+const useLeagueSummaries = (ids: string[] | undefined) => {
+  const key = (ids ?? []).join(',');
+  const [leagues, setLeagues] = useState<LeagueSummary[]>([]);
+  useEffect(() => {
+    if (!key) {
+      setLeagues([]);
+      return;
+    }
+    const c = new AbortController();
+    supabase
+      .rpc('league_summaries', { p_league_ids: key.split(',').slice(0, 50), p_limit: 50 })
+      .abortSignal(c.signal)
+      .then(({ data, error }) => {
+        if (c.signal.aborted) return;
+        if (error) console.error('league_summaries', error);
+        setLeagues(((data ?? []) as LeagueSummary[]));
+      });
+    return () => c.abort();
+  }, [key]);
+  return leagues;
+};
+
 /**
  * Inicio de un usuario con sesión: primero lo que sigue (campeonatos, resultados y próximos
  * partidos). Si todavía no sigue nada, una invitación corta a seguir sus campeonatos.
  */
-export const FollowingSection = () => {
+export const FollowingSection = ({ full = false }: { full?: boolean }) => {
   const { enabled, count } = useFollows();
   const { feed, status } = useFollowFeed();
+  // Vista "Siguiendo": además, tabla general de mis ligas y mis goleadores
+  const leagues = useLeagueSummaries(full ? feed?.leagues : undefined);
   // Avisos vigentes de las ligas que sigo (se recalcula al seguir o dejar de seguir)
   const notices = useMyLeagueNotices(enabled && count > 0, count);
 
@@ -93,6 +124,21 @@ export const FollowingSection = () => {
         resultsEmpty="Aún no hay partidos jugados en lo que sigues."
         upcomingEmpty="No hay partidos programados en lo que sigues."
       />
+      {full && leagues.length > 0 && (
+        <section aria-labelledby="following-leagues" className="pt-4">
+          <SectionHeader id="following-leagues" title={leagues.length === 1 ? 'Tu liga' : 'Tus ligas'} />
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            {leagues.map((l) => (
+              <LeagueCard key={l.id} league={l} />
+            ))}
+          </div>
+        </section>
+      )}
+      {full && feed.scorers && feed.scorers.length > 0 && (
+        <div className="pt-4">
+          <TopScorers scorers={feed.scorers} title="Goleadores de lo que sigues" id="following-scorers" />
+        </div>
+      )}
     </section>
   );
 };

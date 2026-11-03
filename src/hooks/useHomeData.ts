@@ -103,12 +103,14 @@ const fetchHome = async (signal: AbortSignal): Promise<HomeData> => {
  * Datos públicos del Inicio: 5 consultas en paralelo, todas acotadas (LIMIT) y servidas por índices.
  * Se cachean 60 s en la sesión; las peticiones en vuelo se cancelan al salir de la página.
  */
-export const useHomeData = () => {
+export const useHomeData = (enabled = true) => {
   const [data, setData] = useState<HomeData | null>(() => readCache<HomeData>(CACHE_KEY, CACHE_TTL_MS)?.value ?? null);
   const [status, setStatus] = useState<Status>(() => (data ? 'ready' : 'loading'));
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
+    // En la vista "Siguiendo" no se pide el Inicio general (menos carga para el servidor)
+    if (!enabled) return;
     const cached = readCache<HomeData>(CACHE_KEY, CACHE_TTL_MS);
     if (cached?.fresh && attempt === 0) return;
 
@@ -127,7 +129,7 @@ export const useHomeData = () => {
         setStatus(cached ? 'ready' : 'error');
       });
     return () => controller.abort();
-  }, [attempt]);
+  }, [attempt, enabled]);
 
   const retry = useCallback(() => setAttempt((a) => a + 1), []);
   return { data, status, retry };

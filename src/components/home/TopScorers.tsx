@@ -2,11 +2,19 @@ import { HomeScorer } from '../../types/home';
 import { SectionHeader } from './SectionHeader';
 
 /** Top de goleadores de los campeonatos en curso (calculado en el servidor). */
-export const TopScorers = ({ scorers }: { scorers: HomeScorer[] }) => {
+export const TopScorers = ({
+  scorers,
+  title = 'Goleadores de campeonatos en curso',
+  id = 'home-scorers',
+}: {
+  scorers: HomeScorer[];
+  title?: string;
+  id?: string;
+}) => {
   if (scorers.length === 0) return null;
   return (
-    <section aria-labelledby="home-scorers" className="max-w-2xl">
-      <SectionHeader id="home-scorers" title="Goleadores de campeonatos en curso" />
+    <section aria-labelledby={id} className="max-w-2xl">
+      <SectionHeader id={id} title={title} />
       <ol className="bg-mg-surface border border-mg-line rounded-mg-lg overflow-hidden">
         {scorers.map((s, i) => (
           <li key={s.player_id} className={`flex items-center gap-4 px-5 py-3 border-t border-mg-line first:border-t-0 ${i === 0 ? 'bg-mg-pitch-tint' : ''}`}>
