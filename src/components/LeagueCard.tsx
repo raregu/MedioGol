@@ -1,4 +1,4 @@
-import { ArrowRight, Trophy } from 'lucide-react';
+import { ArrowRight, Trophy, Zap } from 'lucide-react';
 import { LeagueSummary } from '../types/home';
 import { LeagueNoticeBar } from './league/LeagueNoticeBar';
 
@@ -36,6 +36,18 @@ export const LeagueCard = ({ league }: { league: LeagueSummary }) => (
         <ArrowRight className="h-4 w-4" aria-hidden="true" />
       </a>
     </div>
+    {league.in_playoffs && (
+      <a
+        href={`/league/${league.id}#playoffs`}
+        className="group flex items-center gap-3 bg-mg-gold text-mg-on-gold px-5 sm:px-6 py-3 hover:brightness-105"
+      >
+        <Zap className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
+        <span className="flex-1 font-extrabold uppercase tracking-wide text-sm">Playoffs en curso</span>
+        <span className="inline-flex items-center gap-1 text-sm font-extrabold">
+          Ver llaves <ArrowRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" aria-hidden="true" />
+        </span>
+      </a>
+    )}
     {league.notice && <LeagueNoticeBar notice={league.notice} />}
     <div className="px-5 sm:px-6 py-5 grid gap-6 sm:grid-cols-2 flex-1">
       <div>

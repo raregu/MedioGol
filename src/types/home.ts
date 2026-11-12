@@ -26,6 +26,8 @@ export interface LeagueSummary {
   top: LeagueSummaryTop[];
   /** Aviso vigente del muro de la liga (null si no hay). Ausente si la migración no está aplicada. */
   notice?: LeagueNotice | null;
+  /** Alguna serie está en playoffs (migración 20261112120000; ausente si no está aplicada) */
+  in_playoffs?: boolean;
 }
 
 export type LeagueNoticeKind = 'aviso' | 'suspension' | 'horario';

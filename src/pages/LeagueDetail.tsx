@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { FollowLeagueButton } from '../components/follow/FollowLeagueButton';
 import { Layout } from '../components/Layout';
 import { supabase } from '../lib/supabase';
@@ -19,6 +19,7 @@ import {
 import { LeagueManageModal } from '../components/admin/LeagueManageModal';
 import { LeagueChat } from '../components/LeagueChat';
 import { LeagueWall } from '../components/league/LeagueWall';
+import { LeaguePlayoffs } from '../components/league/LeaguePlayoffs';
 import { fetchAllRows } from '../utils/fetchAll';
 import {
   AlertCircle,
@@ -39,7 +40,7 @@ import {
   Printer,
 } from 'lucide-react';
 
-type Tab = 'general' | 'series' | 'fechas' | 'clubes';
+type Tab = 'playoffs' | 'general' | 'series' | 'fechas' | 'clubes';
 
 const ClubLogo = ({ name, url, size = 'h-8 w-8' }: { name: string; url?: string | null; size?: string }) =>
   url ? (
@@ -65,7 +66,13 @@ export const LeagueDetail = () => {
   const [phases, setPhases] = useState<LeaguePhase[]>([]);
   const [adjustments, setAdjustments] = useState<LeagueAdjustment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<Tab>('general');
+  const [tab, setTabState] = useState<Tab>('general');
+  // Si el usuario elige una pestaña, no la cambiamos por él
+  const tabChosen = useRef(false);
+  const setTab = (t: Tab) => {
+    tabChosen.current = true;
+    setTabState(t);
+  };
   const [phaseId, setPhaseId] = useState<string>('all');
   const [round, setRound] = useState<number | null>(null);
   const [showManage, setShowManage] = useState(false);
@@ -127,6 +134,15 @@ export const LeagueDetail = () => {
   }, [leagueId]);
 
   const canManage = !!profile && !!league && (profile.role === 'admin_sistema' || league.admin_id === profile.id);
+  // Liga en playoffs: la pestaña Playoffs va primero y se abre por defecto
+  const inPlayoffs = series.some((s) => s.phase === 'playoffs' || s.phase === 'finished');
+  useEffect(() => {
+    if (!inPlayoffs || tabChosen.current) return;
+    setTabState('playoffs');
+    if (window.location.hash === '#playoffs') {
+      setTimeout(() => document.getElementById('playoffs')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300);
+    }
+  }, [inPlayoffs]);
   const phase = phases.find((p) => p.id === phaseId) || null;
 
   const general = useMemo(
@@ -187,6 +203,7 @@ export const LeagueDetail = () => {
   const freeClubs = round !== null ? Array.from(clubs.values()).filter((c) => !playingClubs.has(c.key)) : [];
 
   const tabs: { id: Tab; label: string }[] = [
+    ...(inPlayoffs ? [{ id: 'playoffs' as Tab, label: '🏆 Playoffs' }] : []),
     { id: 'general', label: 'Tabla General' },
     { id: 'series', label: 'Series' },
     { id: 'fechas', label: 'Fechas' },
@@ -209,6 +226,15 @@ export const LeagueDetail = () => {
               <p className="text-xs font-bold tracking-widest uppercase text-emerald-300">
                 Liga{league.season ? ` · Temporada ${league.season}` : ''}
               </p>
+              {inPlayoffs && (
+                <button
+                  type="button"
+                  onClick={() => setTab('playoffs')}
+                  className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-amber-400 text-amber-950 px-3 py-1 text-xs font-black uppercase tracking-wide hover:bg-amber-300"
+                >
+                  <Trophy className="h-3.5 w-3.5" aria-hidden="true" /> Playoffs en curso
+                </button>
+              )}
               <h1 className="text-3xl font-black leading-tight">{league.name}</h1>
               <div className="flex flex-wrap gap-x-5 gap-y-1 mt-2 text-sm text-emerald-100">
                 {league.location && (
@@ -261,8 +287,13 @@ export const LeagueDetail = () => {
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
+                aria-pressed={tab === t.id}
                 className={`px-4 py-3 text-sm font-bold border-b-4 transition-colors ${
-                  tab === t.id ? 'border-amber-400 text-white' : 'border-transparent text-emerald-200 hover:text-white'
+                  tab === t.id
+                    ? 'border-amber-400 text-white'
+                    : t.id === 'playoffs'
+                      ? 'border-transparent text-amber-300 hover:text-amber-200'
+                      : 'border-transparent text-emerald-200 hover:text-white'
                 }`}
               >
                 {t.label}
@@ -272,6 +303,8 @@ export const LeagueDetail = () => {
         </section>
 
         <LeagueWall leagueId={league.id} canManage={canManage} />
+
+        {tab === 'playoffs' && inPlayoffs && <LeaguePlayoffs series={series} />}
 
         {series.length === 0 && (
           <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-600">
