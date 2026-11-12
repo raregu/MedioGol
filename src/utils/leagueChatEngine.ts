@@ -14,6 +14,7 @@ import {
   seriesLabel,
   seriesStandings,
 } from './leagueStandings';
+import { describePlayoffs, isPlayoffQuestion, PlayoffRow, teamWordsIn } from './playoffChat';
 
 export interface LeagueChatData {
   league: League;
@@ -23,6 +24,8 @@ export interface LeagueChatData {
   phases: LeaguePhase[];
   adjustments: LeagueAdjustment[];
   encounters: Encounter[];
+  /** Llaves de playoffs de las series (se cargan al abrir el asistente) */
+  playoffs?: PlayoffRow[];
   now?: number;
 }
 
@@ -145,6 +148,39 @@ export function buildLeagueAnswer(question: string, d: LeagueChatData): string {
   const phase = phaseHit === 'all' ? null : phaseHit || defaultPhase;
   const phaseName = phase ? phase.name : 'acumulada';
   const general = () => generalStandings(d.league, d.series, d.teams, d.matches, d.adjustments, phase);
+
+  // ── Playoffs (cuartos, semis, final, clasificados, campeón) ──
+  if (isPlayoffQuestion(question)) {
+    const rows = d.playoffs ?? [];
+    if (rows.length === 0) return 'La liga todavía no tiene playoffs cargados. Cuando el organizador arme las llaves, te las muestro aquí.';
+    const names = rows.flatMap((m) => [m.team1_name, m.team2_name]).filter((n): n is string => !!n);
+    const words = teamWordsIn(qNoPhase, names);
+    const bySeries = (s: Championship) => rows.filter((m) => m.championship_id === s.id);
+    if (serie) {
+      return (
+        describePlayoffs(bySeries(serie), { title: `Playoffs ${seriesLabel(serie)}`, teamWords: words }) ??
+        `No encontré llaves de playoffs en ${seriesLabel(serie)}${words.length ? ' para ese club' : ''}.`
+      );
+    }
+    if (words.length) {
+      const parts = d.series
+        .map((s) => describePlayoffs(bySeries(s), { title: seriesLabel(s), teamWords: words }))
+        .filter((x): x is string => !!x);
+      return parts.length ? parts.join('\n\n') : 'Ese club no aparece en las llaves de playoffs.';
+    }
+    // Resumen: por serie, la etapa en juego (o el campeón)
+    const order = ['round_of_32', 'round_of_16', 'quarterfinals', 'semifinals', 'final'];
+    const parts = d.series
+      .map((s) => {
+        const list = bySeries(s);
+        if (!list.length) return null;
+        const current = order.find((r) => list.some((m) => m.round === r && m.status !== 'finished'));
+        const shown = current ? list.filter((m) => m.round === current) : list.filter((m) => m.round === 'final');
+        return describePlayoffs(shown, { title: seriesLabel(s) });
+      })
+      .filter((x): x is string => !!x);
+    return `🏆 **Playoffs de la liga**\n\n${parts.join('\n\n')}\n\n_Pregunta por una serie (ej. "playoffs ${d.series[0] ? seriesLabel(d.series[0]) : 'Dorados'}") o por tu club para ver su camino._`;
+  }
 
   const played = d.encounters.filter((e) => e.finishedCount > 0);
   const lastRound = played.length ? Math.max(...played.map((e) => e.round)) : null;
