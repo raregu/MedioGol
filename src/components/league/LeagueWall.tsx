@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useRef, useState } from 'react';
-import { Loader2, Megaphone, Pencil, Pin, PinOff, Plus, Trash2, X } from 'lucide-react';
+import { ChevronDown, Loader2, Megaphone, Pencil, Pin, PinOff, Plus, Trash2, X } from 'lucide-react';
 import { LeaguePost, LeaguePostInput, useLeaguePosts } from '../../hooks/useLeaguePosts';
 import { LeagueNoticeKind } from '../../types/home';
 import { NOTICE_KINDS, noticeKind, timeAgo } from './noticeMeta';
@@ -235,8 +235,12 @@ const PostItem = ({
  * Si la liga no tiene avisos y quien mira no la administra, no ocupa espacio.
  */
 export const LeagueWall = ({ leagueId, canManage }: { leagueId: string; canManage: boolean }) => {
-  const { posts, status, hasMore, loadMore, create, update, remove } = useLeaguePosts(leagueId);
+  const { posts, status, hasMore, loadMore, create, update, remove } = useLeaguePosts(leagueId, canManage);
   const [composing, setComposing] = useState(false);
+  const [showExpired, setShowExpired] = useState(false);
+  // Los avisos cuya fecha ya pasó no ocupan espacio: el público no los ve y el organizador los tiene plegados
+  const active = posts.filter((p) => !isExpired(p));
+  const expired = posts.filter(isExpired);
   const [editing, setEditing] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const sectionRef = useRef<HTMLElement>(null);
@@ -251,7 +255,35 @@ export const LeagueWall = ({ leagueId, canManage }: { leagueId: string; canManag
   }, [status]);
 
   if (status === 'unavailable' || status === 'loading') return null;
-  if (posts.length === 0 && !canManage) return null;
+  if (active.length === 0 && !canManage) return null;
+
+  const renderPost = (p: LeaguePost) =>
+      editing === p.id ? (
+        <li key={p.id}>
+          <PostForm
+            initial={{ kind: p.kind, title: p.title, body: p.body ?? '', pinned: p.pinned, expires_at: p.expires_at }}
+            submitLabel="Guardar"
+            onCancel={() => setEditing(null)}
+            onSubmit={async (v) => {
+              const err = await update(p.id, v);
+              if (!err) setEditing(null);
+              return err;
+            }}
+          />
+        </li>
+      ) : (
+        <PostItem
+          key={p.id}
+          post={p}
+          canManage={canManage}
+          onEdit={() => {
+            setComposing(false);
+            setEditing(p.id);
+          }}
+          onTogglePin={() => update(p.id, { pinned: !p.pinned })}
+          onDelete={() => remove(p.id)}
+        />
+      );
 
   return (
     <section ref={sectionRef} id="muro" aria-labelledby="muro-title" className="scroll-mt-20 bg-mg-surface rounded-xl border border-mg-line shadow-sm p-5 space-y-4 font-sans">
@@ -289,39 +321,29 @@ export const LeagueWall = ({ leagueId, canManage }: { leagueId: string; canManag
         />
       )}
 
-      {posts.length === 0 ? (
-        !composing && <p className="text-sm text-mg-muted">Aún no hay avisos. Publica el primero, por ejemplo si se suspende una fecha.</p>
+      {active.length === 0 ? (
+        !composing && (
+          <p className="text-sm text-mg-muted">
+            {expired.length ? 'No hay avisos vigentes.' : 'Aún no hay avisos. Publica el primero, por ejemplo si se suspende una fecha.'}
+          </p>
+        )
       ) : (
-        <ul className="space-y-3">
-          {posts.map((p) =>
-            editing === p.id ? (
-              <li key={p.id}>
-                <PostForm
-                  initial={{ kind: p.kind, title: p.title, body: p.body ?? '', pinned: p.pinned, expires_at: p.expires_at }}
-                  submitLabel="Guardar"
-                  onCancel={() => setEditing(null)}
-                  onSubmit={async (v) => {
-                    const err = await update(p.id, v);
-                    if (!err) setEditing(null);
-                    return err;
-                  }}
-                />
-              </li>
-            ) : (
-              <PostItem
-                key={p.id}
-                post={p}
-                canManage={canManage}
-                onEdit={() => {
-                  setComposing(false);
-                  setEditing(p.id);
-                }}
-                onTogglePin={() => update(p.id, { pinned: !p.pinned })}
-                onDelete={() => remove(p.id)}
-              />
-            )
-          )}
-        </ul>
+        <ul className="space-y-3">{active.map(renderPost)}</ul>
+      )}
+
+      {canManage && expired.length > 0 && (
+        <div>
+          <button
+            type="button"
+            onClick={() => setShowExpired((v) => !v)}
+            aria-expanded={showExpired}
+            className="inline-flex items-center gap-1.5 min-h-[40px] text-sm font-bold text-mg-muted hover:text-mg-ink"
+          >
+            <ChevronDown className={`h-4 w-4 transition-transform ${showExpired ? 'rotate-180' : ''}`} aria-hidden="true" />
+            Avisos vencidos ({expired.length}) · solo los ves tú
+          </button>
+          {showExpired && <ul className="mt-2 space-y-3">{expired.map(renderPost)}</ul>}
+        </div>
       )}
 
       {hasMore && (
