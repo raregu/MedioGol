@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
-import { MessageCircle, X, Send, Bot, User, ChevronDown } from 'lucide-react';
+import { X, Send, User, ChevronDown } from 'lucide-react';
+import { HelperAvatar } from './assistant/HelperAvatar';
 import { supabase } from '../lib/supabase';
 import { describePlayoffs, fetchPlayoffs, isPlayoffQuestion, PlayoffRow, teamWordsIn } from '../utils/playoffChat';
 
@@ -603,10 +604,11 @@ export const ChampionshipChat = ({ championshipId }: Props) => {
       {/* Botón flotante */}
       <button
         onClick={() => setOpen((v) => !v)}
-        className="fixed bottom-24 md:bottom-6 right-4 md:right-6 z-50 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
-        title="Chat del campeonato"
+        className={`fixed bottom-24 md:bottom-6 right-4 md:right-6 z-50 ${open ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-transparent'} text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105`}
+        title="¿Necesitas ayuda? Pregúntale al asistente"
+        aria-label={open ? 'Cerrar asistente del campeonato' : 'Abrir asistente del campeonato'}
       >
-        {open ? <ChevronDown className="h-6 w-6" /> : <MessageCircle className="h-6 w-6" />}
+        {open ? <ChevronDown className="h-6 w-6" /> : <HelperAvatar size={56} badge className="drop-shadow" />}
       </button>
 
       {/* Panel de chat */}
@@ -618,8 +620,8 @@ export const ChampionshipChat = ({ championshipId }: Props) => {
           {/* Header */}
           <div className="bg-emerald-600 rounded-t-2xl px-4 py-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
-                <Bot className="h-4 w-4 text-white" />
+              <div className="w-8 h-8 rounded-full flex items-center justify-center">
+                <HelperAvatar size={28} />
               </div>
               <div>
                 <p className="text-white font-semibold text-sm">Asistente del Campeonato</p>
@@ -650,7 +652,7 @@ export const ChampionshipChat = ({ championshipId }: Props) => {
                       }`}
                     >
                       {msg.role === 'assistant' ? (
-                        <Bot className="h-4 w-4 text-emerald-600" />
+                        <HelperAvatar size={28} />
                       ) : (
                         <User className="h-4 w-4 text-gray-500" />
                       )}
@@ -687,7 +689,7 @@ export const ChampionshipChat = ({ championshipId }: Props) => {
                 {loading && (
                   <div className="flex gap-2">
                     <div className="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center bg-emerald-100">
-                      <Bot className="h-4 w-4 text-emerald-600" />
+                      <HelperAvatar size={28} />
                     </div>
                     <div className="bg-gray-100 rounded-2xl rounded-tl-sm px-3 py-2 flex items-center gap-1">
                       <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />

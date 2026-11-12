@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Bot, ChevronDown, MessageCircle, Send, User, X } from 'lucide-react';
+import { ChevronDown, Send, User, X } from 'lucide-react';
+import { HelperAvatar } from './assistant/HelperAvatar';
 import { buildLeagueAnswer, LEAGUE_SUGGESTIONS, LeagueChatData } from '../utils/leagueChatEngine';
 import { fetchPlayoffs, PlayoffRow } from '../utils/playoffChat';
 
@@ -98,10 +99,10 @@ export const LeagueChat = ({ data }: { data: LeagueChatData | null }) => {
       <button
         onClick={() => setOpen((v) => !v)}
         aria-label={open ? 'Cerrar asistente de la liga' : 'Abrir asistente de la liga'}
-        className="fixed bottom-24 md:bottom-6 right-4 md:right-6 z-50 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
-        title="Asistente de la liga"
+        className={`fixed bottom-24 md:bottom-6 right-4 md:right-6 z-50 ${open ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-transparent'} text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105`}
+        title="¿Necesitas ayuda? Pregúntale al asistente"
       >
-        {open ? <ChevronDown className="h-6 w-6" /> : <MessageCircle className="h-6 w-6" />}
+        {open ? <ChevronDown className="h-6 w-6" /> : <HelperAvatar size={56} badge className="drop-shadow" />}
       </button>
 
       {open && (
@@ -113,8 +114,8 @@ export const LeagueChat = ({ data }: { data: LeagueChatData | null }) => {
         >
           <div className="bg-emerald-950 rounded-t-2xl px-4 py-3 flex items-center justify-between">
             <div className="flex items-center gap-2 min-w-0">
-              <div className="w-8 h-8 bg-amber-400 rounded-full flex items-center justify-center flex-shrink-0">
-                <Bot className="h-4 w-4 text-emerald-950" />
+              <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0">
+                <HelperAvatar size={28} />
               </div>
               <div className="min-w-0">
                 <p className="text-white font-semibold text-sm truncate">Asistente de la Liga</p>
@@ -136,7 +137,7 @@ export const LeagueChat = ({ data }: { data: LeagueChatData | null }) => {
                 {messages.map((m) => (
                   <div key={m.id} className={`flex gap-2 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
                     <div className={`w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center ${m.role === 'assistant' ? 'bg-emerald-100' : 'bg-gray-200'}`}>
-                      {m.role === 'assistant' ? <Bot className="h-4 w-4 text-emerald-700" /> : <User className="h-4 w-4 text-gray-500" />}
+                      {m.role === 'assistant' ? <HelperAvatar size={28} /> : <User className="h-4 w-4 text-gray-500" />}
                     </div>
                     <div
                       className={`max-w-[80%] px-3 py-2 rounded-2xl text-sm leading-relaxed ${
@@ -166,7 +167,7 @@ export const LeagueChat = ({ data }: { data: LeagueChatData | null }) => {
                 {typing && (
                   <div className="flex gap-2" aria-live="polite">
                     <div className="w-7 h-7 rounded-full flex items-center justify-center bg-emerald-100">
-                      <Bot className="h-4 w-4 text-emerald-700" />
+                      <HelperAvatar size={28} />
                     </div>
                     <div className="bg-gray-100 rounded-2xl rounded-tl-sm px-3 py-2 flex items-center gap-1">
                       <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
