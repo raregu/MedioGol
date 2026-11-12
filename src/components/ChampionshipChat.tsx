@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { MessageCircle, X, Send, Bot, User, ChevronDown } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { describePlayoffs, fetchPlayoffs, isPlayoffQuestion, PlayoffRow, teamWordsIn } from '../utils/playoffChat';
 
 interface Message {
   id: string;
@@ -54,6 +55,8 @@ interface ChatData {
   matches: MatchData[];
   scorers: ScorerData[];
   standings: TeamData[];
+  /** Llaves de playoffs (vacío si el campeonato no tiene) */
+  playoffs: PlayoffRow[];
 }
 
 // ─── Normalización de texto ──────────────────────────────────────────────────
@@ -80,7 +83,19 @@ const SUGGESTIONS = [
 
 function buildAnswer(question: string, data: ChatData): string {
   const q = norm(question);
-  const { championship, matches, scorers, standings } = data;
+  const { championship, matches, scorers, standings, playoffs } = data;
+
+  // ── Playoffs (antes que la tabla: "clasificados", "cuartos", "semifinal", "final", "campeón") ──
+  if (isPlayoffQuestion(question)) {
+    if (playoffs.length === 0) {
+      return 'Este campeonato todavía no tiene playoffs cargados. Cuando el organizador arme las llaves, te las muestro aquí.';
+    }
+    const teamNames = playoffs.flatMap((m) => [m.team1_name, m.team2_name]).filter((n): n is string => !!n);
+    const words = teamWordsIn(question, teamNames);
+    const forTeam = words.length ? describePlayoffs(playoffs, { teamWords: words }) : null;
+    if (forTeam) return `🏆 **Playoffs**\n\n${forTeam}`;
+    return describePlayoffs(playoffs, { title: 'Playoffs' }) ?? 'Aún no hay llaves de playoffs.';
+  }
 
   // ── Tabla de posiciones ──
   if (
@@ -159,6 +174,11 @@ function buildAnswer(question: string, data: ChatData): string {
     q.includes('calendario') ||
     (q.includes('partido') && !q.includes('resultado') && !q.includes('gano') && !q.includes('gano'))
   ) {
+    // En playoffs, los próximos partidos son las llaves sin jugar
+    const pendingPlayoffs = playoffs.filter((m) => m.status !== 'finished');
+    if (pendingPlayoffs.length > 0 && !matches.some((m) => m.status !== 'finished')) {
+      return describePlayoffs(pendingPlayoffs, { title: 'Próximos partidos de playoffs' }) ?? 'No hay partidos pendientes.';
+    }
     const teamMatch = findTeamInQuestion(q, matches);
     const allUpcoming = matches.filter((m) => m.status !== 'finished');
     const upcoming = teamMatch
@@ -276,7 +296,9 @@ function buildAnswer(question: string, data: ChatData): string {
     `• ⚽ Goleadores\n` +
     `• 📅 Próximos partidos o resultados\n` +
     `• 📍 Recintos y canchas\n` +
-    `• 🏆 Info del campeonato\n\n` +
+    `• 🏆 Info del campeonato\n` +
+    (playoffs.length ? `• 🥇 Playoffs: llaves, cruces y campeón\n` : '') +
+    `\n` +
     (allFinished > 0 || allPending > 0
       ? `Hay **${allFinished}** partido${allFinished !== 1 ? 's' : ''} finalizado${allFinished !== 1 ? 's' : ''} y **${allPending}** pendiente${allPending !== 1 ? 's' : ''}.`
       : '') +
@@ -453,7 +475,7 @@ export const ChampionshipChat = ({ championshipId }: Props) => {
     // Solo mostrar spinner si es la primera carga (no en refresh silencioso)
     if (!isRefresh) setDataLoading(true);
     try {
-      const [champRes, matchesRes] = await Promise.all([
+      const [champRes, matchesRes, playoffRows] = await Promise.all([
         supabase
           .from('championships')
           .select('name, sport, venue, status, start_date, end_date, description')
@@ -466,6 +488,7 @@ export const ChampionshipChat = ({ championshipId }: Props) => {
           )
           .eq('championship_id', championshipId)
           .order('match_date', { ascending: false }),
+        fetchPlayoffs([championshipId]),
       ]);
 
       const matchData = (matchesRes.data || []) as MatchData[];
@@ -532,6 +555,7 @@ export const ChampionshipChat = ({ championshipId }: Props) => {
         matches: matchData,
         scorers: scorersData,
         standings: standingsData,
+        playoffs: playoffRows,
       };
       setChatData(data);
 
@@ -541,7 +565,7 @@ export const ChampionshipChat = ({ championshipId }: Props) => {
         setMessages([{
           id: '0',
           role: 'assistant',
-          text: `¡Hola! 👋 Soy el asistente del **${name}**.\n\nPuedo responderte sobre resultados, goleadores, tabla de posiciones, próximos partidos y más. ¿Qué querés saber?`,
+          text: `¡Hola! 👋 Soy el asistente del **${name}**.\n\nPuedo responderte sobre resultados, goleadores, tabla de posiciones, próximos partidos${playoffRows.length ? ', **playoffs**' : ''} y más. ¿Qué querés saber?`,
           timestamp: new Date(),
         }]);
       }
@@ -647,7 +671,7 @@ export const ChampionshipChat = ({ championshipId }: Props) => {
                 {showSuggestions && messages.length === 1 && (
                   <div className="space-y-1.5 pt-1">
                     <p className="text-xs text-gray-400 font-medium px-1">Preguntas frecuentes:</p>
-                    {SUGGESTIONS.map((s) => (
+                    {(chatData?.playoffs.length ? ['¿Cómo van los playoffs?', ...SUGGESTIONS.slice(0, 3)] : SUGGESTIONS).map((s) => (
                       <button
                         key={s}
                         onClick={() => handleSuggestion(s)}
