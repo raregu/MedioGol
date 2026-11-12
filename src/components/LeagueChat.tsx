@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Bot, ChevronDown, MessageCircle, Send, User, X } from 'lucide-react';
 import { buildLeagueAnswer, LEAGUE_SUGGESTIONS, LeagueChatData } from '../utils/leagueChatEngine';
+import { fetchPlayoffs, PlayoffRow } from '../utils/playoffChat';
 
 interface Message {
   id: string;
@@ -39,6 +40,24 @@ export const LeagueChat = ({ data }: { data: LeagueChatData | null }) => {
   const [typing, setTyping] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Playoffs de las series: se piden una vez, al abrir el asistente
+  const [playoffs, setPlayoffs] = useState<PlayoffRow[] | null>(null);
+  const seriesKey = data ? data.series.map((s) => s.id).join(',') : '';
+
+  useEffect(() => {
+    setPlayoffs(null);
+  }, [seriesKey]);
+
+  useEffect(() => {
+    if (!open || !seriesKey || playoffs !== null) return;
+    let alive = true;
+    fetchPlayoffs(seriesKey.split(',')).then((rows) => {
+      if (alive) setPlayoffs(rows);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [open, seriesKey, playoffs]);
 
   useEffect(() => {
     if (open && data && messages.length === 0) {
@@ -65,7 +84,7 @@ export const LeagueChat = ({ data }: { data: LeagueChatData | null }) => {
     await new Promise((r) => setTimeout(r, 350));
     let answer: string;
     try {
-      answer = buildLeagueAnswer(text, data);
+      answer = buildLeagueAnswer(text, { ...data, playoffs: playoffs ?? [] });
     } catch (e) {
       console.error('League chat error:', e);
       answer = 'Tuve un problema al buscar esa información. Intenta preguntarlo de otra forma.';
@@ -132,7 +151,7 @@ export const LeagueChat = ({ data }: { data: LeagueChatData | null }) => {
                 {messages.length === 1 && (
                   <div className="space-y-1.5 pt-1">
                     <p className="text-xs text-gray-500 font-medium px-1">Preguntas frecuentes:</p>
-                    {LEAGUE_SUGGESTIONS.map((s) => (
+                    {(playoffs?.length ? ['¿Cómo van los playoffs?', ...LEAGUE_SUGGESTIONS.slice(0, 3)] : LEAGUE_SUGGESTIONS).map((s) => (
                       <button
                         key={s}
                         onClick={() => send(s)}
