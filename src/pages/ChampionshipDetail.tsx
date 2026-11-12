@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { FollowButton } from '../components/follow/FollowButton';
 import { LeagueNoticeBar } from '../components/league/LeagueNoticeBar';
 import { useLeagueNotice } from '../hooks/useLeaguePosts';
@@ -61,7 +61,15 @@ export const ChampionshipDetail = () => {
   const [topScorers, setTopScorers] = useState<TopScorer[]>([]);
   const [sanctions, setSanctions] = useState<Sanction[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'standings' | 'matches' | 'teams' | 'scorers' | 'sanctions' | 'playoffs' | 'gallery'>('standings');
+  type DetailTab = 'standings' | 'matches' | 'teams' | 'scorers' | 'sanctions' | 'playoffs' | 'gallery';
+  // ?tab=playoffs (enlaces desde la liga) abre directo esa pestaña
+  const tabParam = new URLSearchParams(window.location.search).get('tab') as DetailTab | null;
+  const [activeTab, setActiveTabState] = useState<DetailTab>(tabParam || 'standings');
+  const tabChosen = useRef(!!tabParam);
+  const setActiveTab = (t: DetailTab) => {
+    tabChosen.current = true;
+    setActiveTabState(t);
+  };
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [showMatchDetailsModal, setShowMatchDetailsModal] = useState(false);
@@ -80,6 +88,12 @@ export const ChampionshipDetail = () => {
   const [showSponsorsModal, setShowSponsorsModal] = useState(false);
 
   const championshipId = window.location.pathname.split('/').pop();
+
+  // En playoffs, la pestaña Playoffs se abre por defecto (si el usuario no eligió otra)
+  const champPhase = championship?.phase;
+  useEffect(() => {
+    if ((champPhase === 'playoffs' || champPhase === 'finished') && !tabChosen.current) setActiveTabState('playoffs');
+  }, [champPhase]);
   // Pagos: administradores, admin de la liga y encargados de turno (lo decide el servidor)
   const [canPayments, setCanPayments] = useState(false);
   useEffect(() => {
@@ -647,19 +661,34 @@ export const ChampionshipDetail = () => {
           </div>
         )}
 
+        {championship?.phase === 'playoffs' && activeTab !== 'playoffs' && (
+          <button
+            type="button"
+            onClick={() => setActiveTab('playoffs')}
+            className="w-full flex items-center gap-3 rounded-xl bg-amber-400 text-amber-950 px-4 py-3 text-left shadow-sm hover:bg-amber-300"
+          >
+            <Zap className="h-6 w-6 flex-shrink-0" aria-hidden="true" />
+            <span className="flex-1">
+              <span className="block font-black">¡Estamos en playoffs!</span>
+              <span className="block text-sm font-semibold">Mira las llaves, los resultados y quién avanza.</span>
+            </span>
+            <span className="font-black text-sm whitespace-nowrap">Ver cuadro →</span>
+          </button>
+        )}
+
         <div className="bg-white rounded-xl shadow-md">
           {/* Navegación por secciones — grilla de iconos, amigable en celular */}
           <div className="p-3 border-b border-gray-100">
             <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
               {[
+                ...((championship?.phase === 'playoffs' || championship?.phase === 'finished')
+                  ? [{ key: 'playoffs', label: 'Playoffs', icon: <Zap className="h-5 w-5" /> }]
+                  : []),
                 { key: 'standings', label: 'Posiciones', icon: <BarChart2 className="h-5 w-5" /> },
                 { key: 'matches',   label: 'Partidos',   icon: <Calendar className="h-5 w-5" /> },
                 { key: 'teams',     label: 'Equipos',    icon: <Users className="h-5 w-5" /> },
                 { key: 'scorers',   label: 'Goleadores', icon: <Target className="h-5 w-5" /> },
                 { key: 'sanctions', label: 'Sanciones',  icon: <AlertTriangle className="h-5 w-5" /> },
-                ...((championship?.phase === 'playoffs' || championship?.phase === 'finished')
-                  ? [{ key: 'playoffs', label: 'Playoffs', icon: <Zap className="h-5 w-5" /> }]
-                  : []),
                 { key: 'gallery', label: 'Galería', icon: <Image className="h-5 w-5" /> },
               ].map(({ key, label, icon }) => (
                 <button
@@ -668,7 +697,9 @@ export const ChampionshipDetail = () => {
                   className={`flex flex-col items-center gap-1 py-2.5 px-1 rounded-xl font-medium transition-all text-xs ${
                     activeTab === key
                       ? 'bg-emerald-600 text-white shadow-sm'
-                      : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800'
+                      : key === 'playoffs'
+                        ? 'bg-amber-100 text-amber-900 ring-1 ring-amber-300 hover:bg-amber-200'
+                        : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800'
                   }`}
                 >
                   {icon}
