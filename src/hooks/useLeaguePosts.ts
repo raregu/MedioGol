@@ -22,8 +22,12 @@ const COLS = 'id, league_id, kind, title, body, pinned, expires_at, created_at, 
 /** Error de "la tabla no existe" (migración sin aplicar): el muro simplemente no se muestra. */
 const isMissing = (code?: string) => code === '42P01' || code === 'PGRST205';
 
-/** Muro de una liga: avisos paginados (fijados primero) y, para el organizador, publicar/editar/borrar. */
-export const useLeaguePosts = (leagueId: string | undefined) => {
+/**
+ * Muro de una liga: avisos paginados (fijados primero) y, para el organizador, publicar/editar/borrar.
+ * El público solo recibe los avisos vigentes (sin fecha de término o con fecha futura);
+ * el organizador recibe también los vencidos, para poder editarlos o borrarlos.
+ */
+export const useLeaguePosts = (leagueId: string | undefined, includeExpired = false) => {
   const [posts, setPosts] = useState<LeaguePost[]>([]);
   const [status, setStatus] = useState<'loading' | 'ready' | 'unavailable'>('loading');
   const [hasMore, setHasMore] = useState(false);
@@ -31,10 +35,9 @@ export const useLeaguePosts = (leagueId: string | undefined) => {
   const fetchPage = useCallback(
     async (offset: number) => {
       if (!leagueId) return;
-      const { data, error } = await supabase
-        .from('league_posts')
-        .select(COLS)
-        .eq('league_id', leagueId)
+      let query = supabase.from('league_posts').select(COLS).eq('league_id', leagueId);
+      if (!includeExpired) query = query.or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`);
+      const { data, error } = await query
         .order('pinned', { ascending: false })
         .order('created_at', { ascending: false })
         .range(offset, offset + PAGE);
@@ -50,7 +53,7 @@ export const useLeaguePosts = (leagueId: string | undefined) => {
       setPosts((prev) => (offset === 0 ? page : [...prev, ...page.filter((p) => !prev.some((x) => x.id === p.id))]));
       setStatus('ready');
     },
-    [leagueId]
+    [leagueId, includeExpired]
   );
 
   useEffect(() => {
