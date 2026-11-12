@@ -20,9 +20,12 @@ export default function PlayoffMatchModal({ match, onClose, onSuccess }: Playoff
   const [team2Id, setTeam2Id] = useState(match.team2_id || '');
   const [team1Score, setTeam1Score] = useState(match.team1_score);
   const [team2Score, setTeam2Score] = useState(match.team2_score);
-  const [matchDate, setMatchDate] = useState(
-    match.match_date ? new Date(match.match_date).toISOString().slice(0, 16) : ''
-  );
+  // datetime-local trabaja en la hora local: convertir desde/hacia UTC para no correr la hora (Chile = UTC-3)
+  const toLocalInput = (iso: string) => {
+    const d = new Date(iso);
+    return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  };
+  const [matchDate, setMatchDate] = useState(match.match_date ? toLocalInput(match.match_date) : '');
   const [status, setStatus] = useState(match.status);
   const [availableTeams, setAvailableTeams] = useState<Team[]>([]);
 
@@ -67,7 +70,7 @@ export default function PlayoffMatchModal({ match, onClose, onSuccess }: Playoff
         team2_id: team2Id,
         team1_score: team1Score,
         team2_score: team2Score,
-        match_date: matchDate || null,
+        match_date: matchDate ? new Date(matchDate).toISOString() : null,
         status,
       };
 
