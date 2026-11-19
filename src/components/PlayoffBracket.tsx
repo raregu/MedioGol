@@ -159,10 +159,25 @@ export default function PlayoffBracket({ championship, onMatchClick }: PlayoffBr
           </div>
         )}
 
-        {match.match_date && (
-          <div className="mt-2 text-xs text-gray-500 text-center">
-            {new Date(match.match_date).toLocaleDateString()}
+        {match.match_date ? (
+          <div
+            className={`mt-2 text-xs text-center rounded-md px-2 py-1 font-bold ${
+              match.status === 'finished' ? 'text-gray-500' : 'bg-amber-100 text-amber-900'
+            }`}
+          >
+            {new Date(match.match_date).toLocaleString('es-CL', {
+              weekday: 'short',
+              day: 'numeric',
+              month: 'short',
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: false,
+              timeZone: 'America/Santiago',
+            })}{' '}
+            hrs
           </div>
+        ) : (
+          match.status !== 'finished' && <div className="mt-2 text-xs text-gray-400 text-center">Fecha por confirmar</div>
         )}
 
         {hasWinner && (

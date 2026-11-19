@@ -14,13 +14,16 @@ export interface PlayoffRow {
   team1_score: number | null;
   team2_score: number | null;
   winner_name: string | null;
+  team1_logo?: string | null;
+  team2_logo?: string | null;
   match_date: string | null;
   status: string;
 }
 
-type Raw = Omit<PlayoffRow, 'team1_name' | 'team2_name' | 'winner_name'> & {
-  team1: { name: string } | { name: string }[] | null;
-  team2: { name: string } | { name: string }[] | null;
+type TeamRef = { name: string; logo_url?: string | null };
+type Raw = Omit<PlayoffRow, 'team1_name' | 'team2_name' | 'winner_name' | 'team1_logo' | 'team2_logo'> & {
+  team1: TeamRef | TeamRef[] | null;
+  team2: TeamRef | TeamRef[] | null;
   winner: { name: string } | { name: string }[] | null;
 };
 
@@ -32,7 +35,7 @@ export const fetchPlayoffs = async (championshipIds: string[]): Promise<PlayoffR
   const { data, error } = await supabase
     .from('playoff_matches')
     .select(
-      'championship_id, round, match_number, leg, team1_score, team2_score, match_date, status, team1:team1_id(name), team2:team2_id(name), winner:winner_id(name)'
+      'championship_id, round, match_number, leg, team1_score, team2_score, match_date, status, team1:team1_id(name, logo_url), team2:team2_id(name, logo_url), winner:winner_id(name)'
     )
     .in('championship_id', championshipIds.slice(0, 50))
     .order('match_number')
@@ -53,6 +56,8 @@ export const fetchPlayoffs = async (championshipIds: string[]): Promise<PlayoffR
     team1_name: one(r.team1)?.name?.trim() ?? null,
     team2_name: one(r.team2)?.name?.trim() ?? null,
     winner_name: one(r.winner)?.name?.trim() ?? null,
+    team1_logo: one(r.team1)?.logo_url ?? null,
+    team2_logo: one(r.team2)?.logo_url ?? null,
   }));
 };
 
