@@ -60,7 +60,8 @@ export const clearPlayToken = (code: string) => {
 };
 
 export const groupLink = (code: string) => `${window.location.origin}/g/${code}`;
-export const waLink = (text: string) => `https://wa.me/?text=${encodeURIComponent(text)}`;
+// api.whatsapp.com conserva los emojis; wa.me los rompe en WhatsApp de escritorio
+export const waLink = (text: string) => `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
 
 /** La función no existe todavía en la base (migración sin aplicar). */
 export const isMissingFeature = (err: unknown) => {
@@ -83,7 +84,8 @@ export const byQueue = (a: PlayMember, b: PlayMember) => (a.queued_at || '').loc
 export const listMessage = (v: PlayGroupView) => {
   const { group, session, members } = v;
   const inside = members.filter((m) => isIn(m.status));
-  const pending = members.filter((m) => m.status === 'auto');
+  // Fijos que aún no confirman (sin contar a quien manda el mensaje)
+  const pending = members.filter((m) => m.status === 'auto' && m.id !== v.me);
   const free = Math.max(session.slots - session.used, 0);
   const lines = [
     `⚽ *${group.name}* · ${fmtSession(session.starts_at)}`,
@@ -91,8 +93,13 @@ export const listMessage = (v: PlayGroupView) => {
     `Van ${session.used}/${session.slots}${free > 0 ? ` · quedan ${free} cupos` : ' · lista llena'}`,
   ];
   if (pending.length > 0) {
-    lines.push('', `Falta que respondan: ${pending.map((m) => m.name).join(', ')}`);
-    lines.push(group.fixed_mode === 'confirm' ? `Si no confirman antes del ${fmtMoment(session.closes_at)} se libera su cupo.` : 'Si no van, avisen para que entre alguien de la espera.');
+    if (group.fixed_mode === 'confirm') {
+      lines.push('', `Falta que confirmen: ${pending.map((m) => m.name).join(', ')}`);
+      lines.push(`Si no confirman antes del ${fmtMoment(session.closes_at)} se libera su cupo.`);
+    } else {
+      lines.push('', `Aún no confirman (igual están adentro): ${pending.map((m) => m.name).join(', ')}`);
+      lines.push('Confirmen en el link o avisen si no van, para que entre alguien de la espera.');
+    }
   } else if (inside.length > 0) {
     lines.push('', 'Avisen en el link si alguien no puede.');
   }
