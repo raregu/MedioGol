@@ -17,6 +17,7 @@ import { useAdminOnboarding } from '../hooks/useAdminOnboarding';
 import { AdminOnboardingCard } from '../components/onboarding/AdminOnboarding';
 import { FollowingSection } from '../components/home/FollowingSection';
 import { HomeViewToggle } from '../components/home/HomeViewToggle';
+import { NextPlayCard } from '../components/playgroups/NextPlayCard';
 import { useFollows } from '../hooks/useFollows';
 import { useHomeView } from '../hooks/useHomeView';
 import { HomeChampionship } from '../types/home';
@@ -54,6 +55,8 @@ export const Home = () => {
         )}
 
         {career && <PlayerStrip career={career} />}
+
+        {profile && <NextPlayCard />}
 
         {available && view !== 'pending' && <HomeViewToggle view={view} onChange={setView} />}
 
