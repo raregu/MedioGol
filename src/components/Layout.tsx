@@ -1,7 +1,8 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { Trophy, Search, Users, BarChart3, MessageSquare, LogOut, Menu, X, Bell, Shield, Layers, Flag, Sparkles } from 'lucide-react';
+import { Trophy, Search, Users, BarChart3, MessageSquare, LogOut, Menu, X, Bell, Shield, Layers, Flag, Sparkles, CalendarClock } from 'lucide-react';
+import { useMyPlayGroups } from '../hooks/usePlayGroups';
 import { usePendingOrganizerRequests } from '../hooks/useOrganizerRequests';
 import { AdminAssistant } from './AdminAssistant';
 import { MobileTabBar } from './MobileTabBar';
@@ -23,6 +24,8 @@ export const Layout = ({ children }: LayoutProps) => {
   }, []);
   const canUseAssistant = !!profile && ['admin_sistema', 'admin_campeonato', 'encargado_turno'].includes(profile.role);
   const [pendingInvitations, setPendingInvitations] = useState(0);
+  // Grupos fijos donde me falta responder (aviso en el menú)
+  const { pendingCount: playPending } = useMyPlayGroups();
   const [pendingNotifications, setPendingNotifications] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
   const pendingOrganizerRequests = usePendingOrganizerRequests(profile?.role === 'admin_sistema');
@@ -113,6 +116,15 @@ export const Layout = ({ children }: LayoutProps) => {
                     {pendingInvitations > 0 && (
                       <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shadow-lg animate-pulse">
                         {pendingInvitations}
+                      </span>
+                    )}
+                  </a>
+                  <a href="/grupos" className="px-3 py-2 text-gray-700 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all font-semibold flex items-center gap-2 relative">
+                    <CalendarClock className="h-5 w-5" aria-hidden="true" />
+                    Grupos
+                    {playPending > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-mg-gold text-mg-on-gold text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center" aria-label={`${playPending} por responder`}>
+                        {playPending}
                       </span>
                     )}
                   </a>
@@ -261,6 +273,11 @@ export const Layout = ({ children }: LayoutProps) => {
                       <Users className="h-5 w-5" />
                       Mis Equipos
                     </a>
+                    <a href="/grupos" className="text-gray-700 hover:text-emerald-600 py-2 flex items-center gap-2">
+                      <CalendarClock className="h-5 w-5" aria-hidden="true" />
+                      Grupos fijos
+                      {playPending > 0 && <span className="ml-1 bg-mg-gold text-mg-on-gold text-xs font-bold rounded-full px-2">{playPending} por responder</span>}
+                    </a>
                     <a href="/messages" className="text-gray-700 hover:text-emerald-600 py-2 flex items-center gap-2">
                       <MessageSquare className="h-5 w-5" />
                       Mensajes
@@ -356,7 +373,7 @@ export const Layout = ({ children }: LayoutProps) => {
           setMobileMenuOpen((o) => !o);
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
-        pendingInvitations={pendingInvitations}
+        pendingInvitations={pendingInvitations + playPending}
         pendingOrganizerRequests={pendingOrganizerRequests}
       />
 
