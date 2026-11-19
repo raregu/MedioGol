@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowRight, CalendarDays, Trophy } from 'lucide-react';
+import { ArrowRight, CalendarDays, MapPin, Trophy } from 'lucide-react';
 import { Championship } from '../../types/database';
 import { seriesLabel } from '../../utils/leagueStandings';
 import { fetchPlayoffs, PlayoffRow } from '../../utils/playoffChat';
@@ -92,6 +92,12 @@ const MatchBox = ({ m, prev, next }: { m: PlayoffRow; prev?: string; next?: bool
         ) : (
           <p className="px-2.5 py-1 text-[11px] text-mg-muted bg-mg-surface-2">Fecha por confirmar</p>
         ))}
+      {!decided && m.venue && (
+        <p className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-bold bg-mg-surface-2 text-mg-ink">
+          <MapPin className="h-3 w-3 flex-shrink-0" aria-hidden="true" />
+          <span className="truncate">{m.venue}</span>
+        </p>
+      )}
     </div>
   );
 };
@@ -123,6 +129,9 @@ export const LeaguePlayoffs = ({ series }: { series: Championship[] }) => {
 export const LeaguePlayoffsView = ({ series, rows }: { series: Championship[]; rows: PlayoffRow[] }) => {
   const withPlayoffs = series.filter((s) => rows.some((r) => r.championship_id === s.id));
   const nextRound = nextRoundOf(rows);
+  // Si toda la jornada es en la misma cancha, va una vez en la cabecera; si no, en cada partido
+  const venues = Array.from(new Set(nextRound.list.map((m) => m.venue).filter((v): v is string => !!v)));
+  const sharedVenue = venues.length === 1 && nextRound.list.every((m) => m.venue === venues[0]) ? venues[0] : null;
   if (withPlayoffs.length === 0) {
     return <p className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-600">Los playoffs todavía no están armados.</p>;
   }
@@ -150,6 +159,12 @@ export const LeaguePlayoffsView = ({ series, rows }: { series: Championship[]; r
             <span className="ml-auto text-sm font-extrabold">
               {nextRound.list.length} {nextRound.list.length === 1 ? 'partido' : 'partidos'}
             </span>
+            {sharedVenue && (
+              <p className="basis-full flex items-center gap-1.5 text-sm font-extrabold">
+                <MapPin className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+                {sharedVenue}
+              </p>
+            )}
           </header>
           <ol className="divide-y divide-mg-line">
             {nextRound.list.map((m) => {
@@ -172,6 +187,12 @@ export const LeaguePlayoffsView = ({ series, rows }: { series: Championship[]; r
                         {m.team2_name ?? 'Por definir'}
                       </span>
                     </span>
+                    {!sharedVenue && m.venue && (
+                      <span className="mt-1 flex items-center gap-1 text-xs font-bold text-mg-muted">
+                        <MapPin className="h-3.5 w-3.5 flex-shrink-0" aria-hidden="true" />
+                        {m.venue}
+                      </span>
+                    )}
                   </span>
                 </li>
               );

@@ -373,6 +373,8 @@ export interface PlayoffMatch {
   team2_aggregate_score: number;
   winner_id?: string;
   match_date?: string;
+  /** Cancha (migración 20261119120000) */
+  venue?: string | null;
   status: MatchStatus;
   created_at: string;
   updated_at: string;

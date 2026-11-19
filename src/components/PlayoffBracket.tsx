@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Trophy, Award } from 'lucide-react';
+import { Trophy, Award, MapPin } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { PlayoffMatch, PlayoffRound, Championship } from '../types/database';
 
@@ -178,6 +178,12 @@ export default function PlayoffBracket({ championship, onMatchClick }: PlayoffBr
           </div>
         ) : (
           match.status !== 'finished' && <div className="mt-2 text-xs text-gray-400 text-center">Fecha por confirmar</div>
+        )}
+
+        {match.venue && match.status !== 'finished' && (
+          <div className="mt-1 flex items-center justify-center gap-1 text-xs text-gray-600 font-semibold">
+            <MapPin className="h-3 w-3" aria-hidden="true" /> {match.venue}
+          </div>
         )}
 
         {hasWinner && (

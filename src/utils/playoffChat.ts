@@ -17,6 +17,8 @@ export interface PlayoffRow {
   team1_logo?: string | null;
   team2_logo?: string | null;
   match_date: string | null;
+  /** Cancha (migración 20261119120000; null si no está aplicada o no se ha definido) */
+  venue?: string | null;
   status: string;
 }
 
@@ -32,14 +34,13 @@ const one = <T,>(v: T | T[] | null | undefined): T | null => (Array.isArray(v) ?
 /** Llaves de playoffs de uno o varios campeonatos (una consulta). Vacío si no hay o si falla. */
 export const fetchPlayoffs = async (championshipIds: string[]): Promise<PlayoffRow[]> => {
   if (championshipIds.length === 0) return [];
-  const { data, error } = await supabase
-    .from('playoff_matches')
-    .select(
-      'championship_id, round, match_number, leg, team1_score, team2_score, match_date, status, team1:team1_id(name, logo_url), team2:team2_id(name, logo_url), winner:winner_id(name)'
-    )
-    .in('championship_id', championshipIds.slice(0, 50))
-    .order('match_number')
-    .limit(500);
+  const base =
+    'championship_id, round, match_number, leg, team1_score, team2_score, match_date, status, team1:team1_id(name, logo_url), team2:team2_id(name, logo_url), winner:winner_id(name)';
+  const query = (cols: string) =>
+    supabase.from('playoff_matches').select(cols).in('championship_id', championshipIds.slice(0, 50)).order('match_number').limit(500);
+  let { data, error } = await query(`${base}, venue`);
+  // Sin la columna venue (migración aún no aplicada): se pide sin ella
+  if (error?.code === '42703') ({ data, error } = await query(base));
   if (error) {
     console.error('playoff_matches', error);
     return [];
@@ -52,6 +53,7 @@ export const fetchPlayoffs = async (championshipIds: string[]): Promise<PlayoffR
     team1_score: r.team1_score,
     team2_score: r.team2_score,
     match_date: r.match_date,
+    venue: r.venue ?? null,
     status: r.status,
     team1_name: one(r.team1)?.name?.trim() ?? null,
     team2_name: one(r.team2)?.name?.trim() ?? null,
