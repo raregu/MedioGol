@@ -57,8 +57,8 @@ export const WeekPanel = ({ view, call, token }: PanelProps) => {
     else if (isIn(me.status))
       box = {
         tone: 'bg-mg-pitch-tint text-mg-pitch-deep border-mg-pitch',
-        title: 'Estás adentro',
-        text: me.status === 'auto' ? `Como fijo no tienes que confirmar. Si no puedes, avisa antes del ${fmtMoment(session.closes_at)} para que entre alguien de la espera.` : 'Si al final no puedes, avisa para que suba el primero de la espera.',
+        title: me.status === 'auto' ? 'Estás adentro' : 'Confirmado',
+        text: me.status === 'auto' ? `Como fijo ya tienes tu cupo. Confirma para que el grupo sepa que vas, o avisa antes del ${fmtMoment(session.closes_at)} si no puedes.` : 'Si al final no puedes, avisa para que suba el primero de la espera.',
       };
     else if (me.status === 'wait')
       box = { tone: 'bg-[#fff4d6] text-mg-gold-ink border-mg-gold', title: `En espera · ${waitPos}°`, text: subsOpen ? 'Si alguien se baja, entras solo. Revisa antes de ir.' : `Los cupos libres se reparten el ${fmtMoment(session.subs_at)} por orden de llegada.` };
@@ -79,7 +79,7 @@ export const WeekPanel = ({ view, call, token }: PanelProps) => {
             <div className="flex flex-wrap gap-2">
               {isIn(me!.status) || me!.status === 'wait' ? (
                 <>
-                  {me!.status === 'auto' && group.fixed_mode === 'confirm' && (
+                  {me!.status === 'auto' && (
                     <button type="button" className={primaryBtn} disabled={!!busy} onClick={() => respond('in', me!.guests)}>
                       <Check className="h-4 w-4" aria-hidden="true" /> Confirmo que voy
                     </button>
@@ -131,7 +131,7 @@ export const WeekPanel = ({ view, call, token }: PanelProps) => {
       {admin && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           <Stat label="Van" value={`${session.used}/${session.slots}`} />
-          <Stat label="Sin responder" value={String(inside.filter((m) => m.status === 'auto').length)} warn={group.fixed_mode === 'confirm'} />
+          <Stat label="Sin confirmar" value={String(inside.filter((m) => m.status === 'auto').length)} warn={group.fixed_mode === 'confirm'} />
           <Stat label="En espera" value={String(waiting.length)} />
           {session.price ? <Stat label="Pagaron" value={`${inside.filter((m) => m.paid).length}/${inside.length}`} /> : <Stat label="No van" value={String(out.length)} />}
         </div>
@@ -148,7 +148,7 @@ export const WeekPanel = ({ view, call, token }: PanelProps) => {
           <ul className="divide-y divide-mg-line">
             {inside.map((m) => (
               <Row key={m.id} m={m} me={view.me} admin={admin} played={played} priced={!!session.price} busy={busy}
-                onOut={() => respond('out', 0, m.id)} onPaid={() => setPaid(!m.paid, m.id)} pendingLabel={group.fixed_mode === 'confirm' ? 'por confirmar' : 'sin responder'} />
+                onOut={() => respond('out', 0, m.id)} onPaid={() => setPaid(!m.paid, m.id)} pendingLabel="sin confirmar" />
             ))}
           </ul>
         )}
