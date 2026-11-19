@@ -6,7 +6,7 @@ import { fmtMoment, fmtSession } from '../../utils/playGroups';
 const statusLine = (g: MyPlayGroup, pending: boolean) => {
   if (g.is_admin) {
     const parts = [`${g.used}/${g.slots} van`];
-    if (g.pending > 0) parts.push(`${g.pending} sin responder`);
+    if (g.pending > 0) parts.push(`${g.pending} sin confirmar`);
     if (g.waiting > 0) parts.push(`${g.waiting} en espera`);
     if (g.price) parts.push(`${g.paid} pagaron`);
     return { text: parts.join(' · '), tone: 'text-mg-muted' };
