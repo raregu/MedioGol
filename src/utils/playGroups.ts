@@ -80,29 +80,42 @@ export const playErrorText = (err: unknown, fallback: string) => {
 
 export const byQueue = (a: PlayMember, b: PlayMember) => (a.queued_at || '').localeCompare(b.queued_at || '');
 
-/** Mensaje para el grupo de WhatsApp: abre la lista o recuerda a los que faltan. */
+const withGuest = (m: PlayMember) => (m.guests > 0 ? `${m.name} +1` : m.name);
+const names = (list: PlayMember[]) => list.map(withGuest).join(', ');
+
+/**
+ * Mensaje para el grupo de WhatsApp: primero el resumen de la semana y abajo
+ * dos links de un toque (Voy / No voy) que dejan la respuesta guardada al abrirlos.
+ */
 export const listMessage = (v: PlayGroupView) => {
   const { group, session, members } = v;
-  const inside = members.filter((m) => isIn(m.status));
-  // Fijos que aún no confirman (sin contar a quien manda el mensaje)
-  const pending = members.filter((m) => m.status === 'auto' && m.id !== v.me);
+  const inside = members.filter((m) => isIn(m.status)).sort((a, b) => a.name.localeCompare(b.name));
+  const waiting = members.filter((m) => m.status === 'wait').sort(byQueue);
+  const out = members.filter((m) => m.status === 'out');
+  const pending = inside.filter((m) => m.status === 'auto');
+  const unpaid = session.price ? inside.filter((m) => !m.paid) : [];
   const free = Math.max(session.slots - session.used, 0);
+  const per = formatPerPerson(session.price, session.slots);
+  const link = groupLink(group.invite_code);
+
   const lines = [
     `⚽ *${group.name}* · ${fmtSession(session.starts_at)}`,
-    session.venue ? `📍 ${session.venue}` : '',
-    `Van ${session.used}/${session.slots}${free > 0 ? ` · quedan ${free} cupos` : ' · lista llena'}`,
+    session.venue ? `📍 ${session.venue}` : null,
+    `👥 Van ${session.used}/${session.slots}${free > 0 ? ` · quedan ${free} cupos` : ' · lista llena'}`,
+    '',
+    inside.length ? `✅ *Van:* ${names(inside)}` : '✅ *Van:* nadie todavía',
+    pending.length
+      ? group.fixed_mode === 'confirm'
+        ? `⏳ *Falta confirmar* (antes del ${fmtMoment(session.closes_at)} o se libera el cupo): ${names(pending)}`
+        : `⏳ *Aún no confirman* (igual están adentro): ${names(pending)}`
+      : null,
+    waiting.length ? `🕒 *En espera:* ${waiting.map((m, i) => `${i + 1}° ${withGuest(m)}`).join(', ')}` : null,
+    out.length ? `❌ *No van:* ${names(out)}` : null,
+    unpaid.length ? `💵 *Falta pagar${per ? ` (${per})` : ''}:* ${names(unpaid)}` : null,
+    '',
+    '*¿Vas?* Toca una opción:',
+    `✅ Voy 👉 ${link}?r=si`,
+    `❌ No voy 👉 ${link}?r=no`,
   ];
-  if (pending.length > 0) {
-    if (group.fixed_mode === 'confirm') {
-      lines.push('', `Falta que confirmen: ${pending.map((m) => m.name).join(', ')}`);
-      lines.push(`Si no confirman antes del ${fmtMoment(session.closes_at)} se libera su cupo.`);
-    } else {
-      lines.push('', `Aún no confirman (igual están adentro): ${pending.map((m) => m.name).join(', ')}`);
-      lines.push('Confirmen en el link o avisen si no van, para que entre alguien de la espera.');
-    }
-  } else if (inside.length > 0) {
-    lines.push('', 'Avisen en el link si alguien no puede.');
-  }
-  lines.push('', `Anótate o avisa aquí 👉 ${groupLink(group.invite_code)}`);
-  return lines.filter((l, i) => l !== '' || i > 0).join('\n');
+  return lines.filter((l) => l !== null).join('\n');
 };
