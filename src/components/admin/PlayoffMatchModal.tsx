@@ -26,6 +26,7 @@ export default function PlayoffMatchModal({ match, onClose, onSuccess }: Playoff
     return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
   };
   const [matchDate, setMatchDate] = useState(match.match_date ? toLocalInput(match.match_date) : '');
+  const [venue, setVenue] = useState(match.venue ?? '');
   const [status, setStatus] = useState(match.status);
   const [availableTeams, setAvailableTeams] = useState<Team[]>([]);
 
@@ -73,6 +74,8 @@ export default function PlayoffMatchModal({ match, onClose, onSuccess }: Playoff
         match_date: matchDate ? new Date(matchDate).toISOString() : null,
         status,
       };
+      // Solo se envía si cambió (así el formulario sigue funcionando aunque falte la columna)
+      if (venue.trim() !== (match.venue ?? '')) updateData.venue = venue.trim() || null;
 
       if (status === 'finished') {
         if (match.leg) {
@@ -304,6 +307,21 @@ export default function PlayoffMatchModal({ match, onClose, onSuccess }: Playoff
                 type="datetime-local"
                 value={matchDate}
                 onChange={(e) => setMatchDate(e.target.value)}
+                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="playoff-venue" className="block text-sm font-medium text-gray-700 mb-2">
+                Cancha
+              </label>
+              <input
+                id="playoff-venue"
+                type="text"
+                value={venue}
+                maxLength={120}
+                onChange={(e) => setVenue(e.target.value)}
+                placeholder="Ej.: Cancha de Mundo Nuevo"
                 className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
