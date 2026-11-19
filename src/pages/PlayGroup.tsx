@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronLeft, MapPin, RefreshCw } from 'lucide-react';
 import { Layout } from '../components/Layout';
 import { JoinPanel } from '../components/playgroups/JoinPanel';
@@ -9,7 +9,7 @@ import { WeekPanel } from '../components/playgroups/WeekPanel';
 import { primaryBtn } from '../components/payments/PaymentsUi';
 import { useAuth } from '../contexts/AuthContext';
 import { usePlayGroup } from '../hooks/usePlayGroups';
-import { fmtSession } from '../utils/playGroups';
+import { fmtSession, playErrorText } from '../utils/playGroups';
 
 type Tab = 'semana' | 'equipos' | 'plantel' | 'reglas';
 const TABS: { id: Tab; label: string }[] = [
@@ -33,6 +33,38 @@ export const PlayGroup = () => {
     return t && TABS.some((x) => x.id === t) ? t : params.get('nuevo') ? 'plantel' : 'semana';
   });
   const [justCreated] = useState(() => params.get('nuevo') === '1');
+
+  // Respuesta de un toque desde WhatsApp: /g/:code?r=si | ?r=no
+  const [quick, setQuick] = useState<'in' | 'out' | null>(() => (params.get('r') === 'si' ? 'in' : params.get('r') === 'no' ? 'out' : null));
+  const [quickMsg, setQuickMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const quickDone = useRef(false);
+  useEffect(() => {
+    if (!quick || quickDone.current || status !== 'ready' || !view?.me) return;
+    quickDone.current = true;
+    const url = new URL(window.location.href);
+    url.searchParams.delete('r');
+    window.history.replaceState({}, '', url.toString()); // recargar no repite la respuesta
+    const me = view.members.find((m) => m.id === view.me);
+    (async () => {
+      const { error, data } = await call('play_respond', {
+        p_session: view.session.id,
+        p_status: quick,
+        p_guests: quick === 'in' ? me?.guests ?? 0 : 0,
+        p_member: null,
+        p_token: token,
+      });
+      setQuick(null);
+      if (error) {
+        setQuickMsg({ ok: false, text: playErrorText(error, 'No pudimos guardar tu respuesta. Inténtalo con los botones de abajo.') });
+        return;
+      }
+      const st = (data as { status?: string } | null)?.status;
+      setQuickMsg({
+        ok: true,
+        text: st === 'in' ? '¡Listo! Quedaste confirmado.' : st === 'wait' ? 'Quedaste en la lista de espera. Si alguien se baja, entras solo.' : 'Listo, avisaste que no vas. ¡Gracias por avisar!',
+      });
+    })();
+  }, [quick, status, view, call, token]);
 
   useEffect(() => {
     if (view) document.title = `${view.group.name} · MedioGol`;
@@ -128,6 +160,19 @@ export const PlayGroup = () => {
             <p role="status" className="rounded-mg-lg bg-mg-pitch-tint text-mg-pitch-deep font-bold p-3 text-sm">
               Grupo creado. Agrega a los fijos aquí y después comparte el link en «Esta semana».
             </p>
+          )}
+          {quickMsg && (
+            <p role={quickMsg.ok ? 'status' : 'alert'} className={`rounded-mg-lg border-2 p-4 font-extrabold ${quickMsg.ok ? 'border-mg-pitch bg-mg-pitch-tint text-mg-pitch-deep' : 'border-mg-danger bg-mg-danger-tint text-mg-danger'}`}>
+              {quickMsg.text}
+            </p>
+          )}
+          {quick && !view.me && (
+            <p role="status" className="rounded-mg-lg bg-[#fff4d6] text-mg-gold-ink font-bold p-3 text-sm">
+              Elige tu nombre y guardamos que {quick === 'in' ? 'vas' : 'no vas'}. Solo se pide la primera vez.
+            </p>
+          )}
+          {quick && view.me && !quickMsg && (
+            <p role="status" className="rounded-mg-lg bg-mg-surface-2 font-bold p-3 text-sm">Guardando tu respuesta…</p>
           )}
           {needsJoin ? (
             <JoinPanel view={view} onJoined={(t) => { if (t) setToken(t); reload(); }} />
