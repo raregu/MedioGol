@@ -22,6 +22,8 @@ import { Organize } from './pages/Organize';
 import { ForgotPassword } from './pages/ForgotPassword';
 import { ResetPassword } from './pages/ResetPassword';
 import { ConfirmEmail } from './pages/ConfirmEmail';
+import { PlayGroups } from './pages/PlayGroups';
+import { PlayGroup } from './pages/PlayGroup';
 
 function App() {
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
@@ -56,6 +58,8 @@ function App() {
   if (currentPath.startsWith('/league/')) return <LeagueDetail />;
   if (currentPath.startsWith('/player/')) return <PlayerProfile />;
   if (currentPath === '/my-teams') return <MyTeams />;
+  if (currentPath === '/grupos') return <PlayGroups />;
+  if (currentPath.startsWith('/grupos/') || currentPath.startsWith('/g/')) return <PlayGroup key={currentPath} />;
   if (currentPath === '/messages') return <Messages />;
   if (currentPath === '/admin') return <Admin />;
   if (currentPath === '/live-matches') return <LiveMatches />;
