@@ -10,6 +10,7 @@ import CreateBaseTeamModal from '../components/CreateBaseTeamModal';
 import EditBaseTeamModal from '../components/EditBaseTeamModal';
 import { PlayerManagement } from '../components/PlayerManagement';
 import { JoinTeamSection } from '../components/JoinTeamSection';
+import { PlayGroupsSection } from '../components/playgroups/NextPlayCard';
 import { Users, Plus, Send, UserPlus, Trophy, AlertCircle, Bell, CheckCircle, XCircle, Shield, Eye, EyeOff, ChevronDown, ChevronUp, Edit, Search, Wallet, PiggyBank } from 'lucide-react';
 
 interface CaptainInvitation {
@@ -415,6 +416,8 @@ export const MyTeams = () => {
               </button>
             </div>
           </div>
+
+          <PlayGroupsSection />
 
           {/* Sección de búsqueda / bienvenida */}
           {(baseTeams.length === 0 || showJoinSearch) && (
