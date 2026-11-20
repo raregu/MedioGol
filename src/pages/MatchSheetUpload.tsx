@@ -286,7 +286,7 @@ export const MatchSheetUpload = () => {
                   Ir al campeonato
                 </a>
               )}
-              <a href="/admin" className="inline-flex items-center gap-2 min-h-[44px] px-4 rounded-mg-md border border-mg-line-strong font-extrabold text-sm">
+              <a href={`/admin?championship=${ctx.championship_id}&tab=matches`} className="inline-flex items-center gap-2 min-h-[44px] px-4 rounded-mg-md border border-mg-line-strong font-extrabold text-sm">
                 Volver a Administrar
               </a>
             </div>
@@ -573,7 +573,7 @@ export const MatchSheetUpload = () => {
               <a href={`/championship/${ctx.championship_id}`} className="inline-flex items-center min-h-[44px] px-4 rounded-mg-md border border-mg-line-strong font-extrabold text-sm">
                 Ver campeonato
               </a>
-              <a href="/admin" className="inline-flex items-center min-h-[44px] px-4 rounded-mg-md bg-mg-pitch text-mg-on-pitch font-extrabold text-sm">
+              <a href={`/admin?championship=${ctx.championship_id}&tab=matches`} className="inline-flex items-center min-h-[44px] px-4 rounded-mg-md bg-mg-pitch text-mg-on-pitch font-extrabold text-sm">
                 Volver a Administrar
               </a>
             </div>

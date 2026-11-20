@@ -7,7 +7,7 @@ import { supabase } from '../lib/supabase';
 import { Championship, Match, Team, TeamStanding, PlayoffConfig, PlayoffMatch, Advertisement, Sponsor, League } from '../types/database';
 import { Trophy, Calendar, MapPin, Users, Target, AlertCircle, Phone, FileText, CreditCard as Edit, Shield, Award, AlertTriangle, Eye, Trash2, Zap, Plus, BarChart2, Image, Wallet } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { MatchDetailsModal } from '../components/admin/MatchDetailsModal';
+import { MatchResultModal } from '../components/admin/MatchResultModal';
 import { CreateMatchModal } from '../components/admin/CreateMatchModal';
 import { SanctionsManagementModal } from '../components/admin/SanctionsManagementModal';
 import { MatchEventsModal } from '../components/MatchEventsModal';
@@ -110,7 +110,7 @@ export const ChampionshipDetail = () => {
       });
     return () => controller.abort();
   }, [profile?.id, championshipId]);
-  const isAdmin = profile && (profile.role === 'system_admin' || championship?.admin_id === profile.id);
+  const isAdmin = profile && (profile.role === 'admin_sistema' || championship?.admin_id === profile.id);
 
   useEffect(() => {
     if (championshipId) {
@@ -650,12 +650,13 @@ export const ChampionshipDetail = () => {
                 <Award className="h-4 w-4" />
                 Gestionar Sponsors
               </button>
+              {/* Un solo lugar para administrar: abre el panel en la misma sección */}
               <a
-                href="/admin"
-                className="flex items-center gap-2 px-3 py-1.5 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium text-sm"
+                href={`/admin?championship=${championshipId}&tab=${activeTab === 'teams' ? 'teams' : 'matches'}`}
+                className="flex items-center gap-2 px-3 py-1.5 bg-mg-navy text-mg-on-navy rounded-lg font-extrabold text-sm"
               >
-                <Edit className="h-4 w-4" />
-                Panel Admin
+                <Edit className="h-4 w-4" aria-hidden="true" />
+                Administrar esta serie
               </a>
             </div>
           </div>
@@ -1342,19 +1343,13 @@ export const ChampionshipDetail = () => {
       </div>
 
       {showMatchDetailsModal && selectedMatch && (
-        <MatchDetailsModal
+        <MatchResultModal
           matchId={selectedMatch.id}
-          homeTeamId={selectedMatch.home_team_id}
-          awayTeamId={selectedMatch.away_team_id}
-          homeTeamName={selectedMatch.home_team?.name || ''}
-          awayTeamName={selectedMatch.away_team?.name || ''}
           onClose={() => {
             setShowMatchDetailsModal(false);
             setSelectedMatch(null);
           }}
-          onSuccess={() => {
-            setShowMatchDetailsModal(false);
-            setSelectedMatch(null);
+          onSaved={() => {
             fetchChampionshipData();
             fetchTopScorers();
           }}
