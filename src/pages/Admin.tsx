@@ -11,12 +11,12 @@ import { useOrganizerPlan } from '../hooks/useOrganizerPlan';
 import { PlanStatusCard } from '../components/plan/PlanStatusCard';
 import { OrganizerPlansPanel } from '../components/plan/OrganizerPlansPanel';
 import { Championship, Team, Match, Sanction, Profile } from '../types/database';
-import { Trophy, Users, Calendar, AlertCircle, Plus, UserCog, CreditCard as Edit, MapPin, Trash2, Phone, Image, FileSpreadsheet, Printer, Camera, Eye, Wallet, Flag, Compass, Crown } from 'lucide-react';
+import { Trophy, Users, AlertCircle, Plus, UserCog, CreditCard as Edit, MapPin, Trash2, Phone, Image, Eye, Wallet, Flag, Compass, Crown } from 'lucide-react';
 import { CreateChampionshipModal } from '../components/admin/CreateChampionshipModal';
 import { EditChampionshipModal } from '../components/admin/EditChampionshipModal';
 import { CreateTeamModal } from '../components/CreateTeamModal';
 import { EditTeamModal } from '../components/admin/EditTeamModal';
-import { EditMatchModal } from '../components/admin/EditMatchModal';
+import { MatchAdminList } from '../components/admin/MatchAdminList';
 import { EditSanctionModal } from '../components/admin/EditSanctionModal';
 import { CreateMatchModal } from '../components/admin/CreateMatchModal';
 import { SportsComplexModal } from '../components/admin/SportsComplexModal';
@@ -79,7 +79,6 @@ export const Admin = () => {
   const [showAdvertisementsModal, setShowAdvertisementsModal] = useState(false);
   const [editingChampionship, setEditingChampionship] = useState<Championship | null>(null);
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
-  const [editingMatch, setEditingMatch] = useState<Match | null>(null);
   const [editingSanction, setEditingSanction] = useState<Sanction | null>(null);
   const [editingComplex, setEditingComplex] = useState<SportsComplex | null>(null);
   const [editingBaseTeam, setEditingBaseTeam] = useState<any | null>(null);
@@ -362,9 +361,6 @@ export const Admin = () => {
     }
   };
 
-  // Fechas para imprimir papeletas; por defecto, la primera con partidos pendientes
-  const matchRounds = Array.from(new Set(matches.map((m) => m.round).filter((r) => r != null))).sort((a, b) => a - b);
-  const nextRound = matches.filter((m) => m.status !== 'finished').map((m) => m.round).sort((a, b) => a - b)[0] ?? matchRounds[0];
 
   if (loading) {
     return (
@@ -1133,117 +1129,15 @@ export const Admin = () => {
                     </div>
                   )}
 
-                  {activeTab === 'matches' && (
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <h2 className="text-xl font-bold text-gray-900">Partidos ({matches.length})</h2>
-                        <div className="flex flex-wrap gap-2 justify-end">
-                          {matchRounds.length > 0 && (
-                            <form
-                              className="flex items-center gap-2"
-                              onSubmit={(e) => {
-                                e.preventDefault();
-                                const round = new FormData(e.currentTarget).get('round');
-                                window.open(`/papeletas?championship=${selectedChampionship}&round=${round}`, '_blank', 'noopener');
-                              }}
-                            >
-                              <label htmlFor="sheet-round" className="sr-only">Fecha de las papeletas</label>
-                              <select id="sheet-round" name="round" defaultValue={nextRound} className="h-10 px-2 border border-gray-300 rounded-lg text-sm">
-                                {matchRounds.map((r) => (
-                                  <option key={r} value={r}>Fecha {r}</option>
-                                ))}
-                              </select>
-                              <button type="submit" className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-700 transition-colors">
-                                <Printer className="h-5 w-5" />
-                                Descargar papeletas
-                              </button>
-                            </form>
-                          )}
-                          <button
-                            onClick={() => setShowUploadSchedule(true)}
-                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                          >
-                            <FileSpreadsheet className="h-5 w-5" />
-                            Cargar Excel
-                          </button>
-                          <button
-                            onClick={() => setShowCreateMatch(true)}
-                            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
-                          >
-                            <Plus className="h-5 w-5" />
-                            Crear Partido
-                          </button>
-                        </div>
-                      </div>
-
-                      {matches.length === 0 ? (
-                        <div className="text-center py-12">
-                          <Calendar className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                          <p className="text-gray-600 mb-4">No hay partidos programados aún.</p>
-                          <button
-                            onClick={() => setShowCreateMatch(true)}
-                            className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium"
-                          >
-                            <Plus className="h-5 w-5" />
-                            Crear Primer Partido
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="space-y-3">
-                          {matches.map((match) => (
-                            <div key={match.id} className="bg-gray-50 rounded-lg p-4 relative">
-                              <button
-                                onClick={() => setEditingMatch(match)}
-                                className="absolute top-4 right-4 p-2 text-gray-600 hover:text-emerald-600 hover:bg-white rounded-lg transition-colors"
-                              >
-                                <Edit className="h-4 w-4" />
-                              </button>
-                              <div className="flex items-center justify-between mb-3 pr-10">
-                                <div className="flex-1 text-right">
-                                  <p className="font-semibold text-gray-900">{match.home_team?.name}</p>
-                                </div>
-                                <div className="px-6 text-center">
-                                  {match.status === 'finished' ? (
-                                    <div className="flex items-center gap-3">
-                                      <span className="text-2xl font-bold text-gray-900">{match.home_score}</span>
-                                      <span className="text-gray-500">-</span>
-                                      <span className="text-2xl font-bold text-gray-900">{match.away_score}</span>
-                                    </div>
-                                  ) : (
-                                    <span className="text-sm text-gray-500 px-4 py-1 bg-white rounded-full capitalize">
-                                      {match.status}
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="flex-1">
-                                  <p className="font-semibold text-gray-900">{match.away_team?.name}</p>
-                                </div>
-                              </div>
-                              <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-gray-600">
-                                <span>{new Date(match.match_date).toLocaleString()}</span>
-                                <div className="flex items-center gap-2">
-                                  <span>Fecha {match.round}</span>
-                                  <a
-                                    href={`/papeletas?match=${match.id}`}
-                                    target="_blank"
-                                    rel="noopener"
-                                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 text-xs font-semibold"
-                                  >
-                                    <Printer className="h-3.5 w-3.5" aria-hidden="true" /> Papeleta
-                                  </a>
-                                  <a
-                                    href={`/papeleta/${match.id}`}
-                                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 text-xs font-semibold"
-                                  >
-                                    <Camera className="h-3.5 w-3.5" aria-hidden="true" /> Subir papeleta
-                                  </a>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                  {activeTab === 'matches' && selectedChampionship && (
+                    <MatchAdminList
+                      key={selectedChampionship}
+                      championshipId={selectedChampionship}
+                      matches={matches}
+                      onChanged={() => fetchChampionshipData(selectedChampionship)}
+                      onCreate={() => setShowCreateMatch(true)}
+                      onUploadExcel={() => setShowUploadSchedule(true)}
+                    />
                   )}
 
                   {activeTab === 'sanctions' && (
@@ -1520,17 +1414,6 @@ export const Admin = () => {
           />
         )}
 
-        {editingMatch && (
-          <EditMatchModal
-            match={editingMatch}
-            onClose={() => setEditingMatch(null)}
-            onSuccess={() => {
-              if (selectedChampionship) {
-                fetchChampionshipData(selectedChampionship);
-              }
-            }}
-          />
-        )}
 
         {editingSanction && (
           <EditSanctionModal
