@@ -99,6 +99,9 @@ const MatchBox = ({ m, prev, next }: { m: PlayoffRow; prev?: string; next?: bool
           <span className="truncate">{m.venue}</span>
         </p>
       )}
+      {!decided && m.id && m.team1_id && m.team2_id && (
+        <CallupButton compact playoffId={m.id} home={{ id: m.team1_id, name: m.team1_name }} away={{ id: m.team2_id, name: m.team2_name }} />
+      )}
     </div>
   );
 };
