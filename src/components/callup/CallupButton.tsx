@@ -14,9 +14,11 @@ interface Props {
   home: { id: string | null; name: string | null };
   away: { id: string | null; name: string | null };
   className?: string;
+  /** Versión chica para el pie de los cuadros de playoffs */
+  compact?: boolean;
 }
 
-export const CallupButton = ({ matchId, playoffId, home, away, className = '' }: Props) => {
+export const CallupButton = ({ matchId, playoffId, home, away, className = '', compact = false }: Props) => {
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -44,6 +46,13 @@ export const CallupButton = ({ matchId, playoffId, home, away, className = '' }:
 
   const btn = 'inline-flex items-center justify-center gap-1.5 min-h-[40px] px-3 rounded-mg-md text-[13px] font-extrabold';
 
+  if (!open && compact) {
+    return (
+      <button type="button" onClick={() => setOpen(true)} className={`w-full inline-flex items-center justify-center gap-1 min-h-[36px] px-2 text-[12px] font-extrabold text-mg-pitch-deep hover:bg-mg-pitch-tint ${className}`}>
+        <ClipboardList className="h-3.5 w-3.5" aria-hidden="true" /> Armar lista
+      </button>
+    );
+  }
   if (!open) {
     return (
       <button type="button" onClick={() => setOpen(true)} className={`${btn} border border-mg-pitch text-mg-pitch-deep bg-mg-surface ${className}`}>
