@@ -5,6 +5,9 @@
 import { supabase } from '../lib/supabase';
 
 export interface PlayoffRow {
+  id?: string;
+  team1_id?: string | null;
+  team2_id?: string | null;
   championship_id: string;
   round: string;
   match_number: number;
@@ -35,7 +38,7 @@ const one = <T,>(v: T | T[] | null | undefined): T | null => (Array.isArray(v) ?
 export const fetchPlayoffs = async (championshipIds: string[]): Promise<PlayoffRow[]> => {
   if (championshipIds.length === 0) return [];
   const base =
-    'championship_id, round, match_number, leg, team1_score, team2_score, match_date, status, team1:team1_id(name, logo_url), team2:team2_id(name, logo_url), winner:winner_id(name)';
+    'id, team1_id, team2_id, championship_id, round, match_number, leg, team1_score, team2_score, match_date, status, team1:team1_id(name, logo_url), team2:team2_id(name, logo_url), winner:winner_id(name)';
   const query = (cols: string) =>
     supabase.from('playoff_matches').select(cols).in('championship_id', championshipIds.slice(0, 50)).order('match_number').limit(500);
   let { data, error } = await query(`${base}, venue`);
@@ -46,6 +49,9 @@ export const fetchPlayoffs = async (championshipIds: string[]): Promise<PlayoffR
     return [];
   }
   return ((data || []) as unknown as Raw[]).map((r) => ({
+    id: r.id,
+    team1_id: r.team1_id ?? null,
+    team2_id: r.team2_id ?? null,
     championship_id: r.championship_id,
     round: r.round,
     match_number: r.match_number,

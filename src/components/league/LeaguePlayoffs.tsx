@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { ArrowRight, CalendarDays, MapPin, Trophy } from 'lucide-react';
 import { Championship } from '../../types/database';
 import { seriesLabel } from '../../utils/leagueStandings';
+import { CallupButton } from '../callup/CallupButton';
 import { fetchPlayoffs, PlayoffRow } from '../../utils/playoffChat';
 
 const ROUNDS: { id: string; label: string; prev?: string }[] = [
@@ -192,6 +193,9 @@ export const LeaguePlayoffsView = ({ series, rows }: { series: Championship[]; r
                         <MapPin className="h-3.5 w-3.5 flex-shrink-0" aria-hidden="true" />
                         {m.venue}
                       </span>
+                    )}
+                    {m.id && m.team1_id && m.team2_id && (
+                      <CallupButton className="mt-2" playoffId={m.id} home={{ id: m.team1_id, name: m.team1_name }} away={{ id: m.team2_id, name: m.team2_name }} />
                     )}
                   </span>
                 </li>
