@@ -1,6 +1,16 @@
 {
   "rewrites": [
-    { "source": "/g/:code", "destination": "/api/g?code=:code" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    {
+      "source": "/g/:code",
+      "destination": "/api/g?code=:code"
+    },
+    {
+      "source": "/c/:code",
+      "destination": "/api/c?code=:code"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
   ]
 }
