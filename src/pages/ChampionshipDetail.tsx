@@ -8,6 +8,7 @@ import { Championship, Match, Team, TeamStanding, PlayoffConfig, PlayoffMatch, A
 import { Trophy, Calendar, MapPin, Users, Target, AlertCircle, Phone, FileText, CreditCard as Edit, Shield, Award, AlertTriangle, Eye, Trash2, Zap, Plus, BarChart2, Image, Wallet } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { MatchResultModal } from '../components/admin/MatchResultModal';
+import { CallupButton } from '../components/callup/CallupButton';
 import { CreateMatchModal } from '../components/admin/CreateMatchModal';
 import { SanctionsManagementModal } from '../components/admin/SanctionsManagementModal';
 import { MatchEventsModal } from '../components/MatchEventsModal';
@@ -925,6 +926,9 @@ export const ChampionshipDetail = () => {
                           <p className="font-semibold text-gray-900">{match.away_team?.name}</p>
                         </div>
                         <div className="flex gap-2">
+                          {(match.status === 'scheduled' || match.status === 'playing') && new Date(match.match_date).getTime() > Date.now() - 3 * 3600_000 && (
+                            <CallupButton matchId={match.id} home={{ id: match.home_team_id, name: match.home_team?.name ?? null }} away={{ id: match.away_team_id, name: match.away_team?.name ?? null }} />
+                          )}
                           {isAdmin && (
                             <button
                               onClick={() => {
@@ -1036,6 +1040,9 @@ export const ChampionshipDetail = () => {
                           </div>
                         )}
                         <div className="flex flex-wrap gap-2 pt-2">
+                          {(match.status === 'scheduled' || match.status === 'playing') && new Date(match.match_date).getTime() > Date.now() - 3 * 3600_000 && (
+                            <CallupButton matchId={match.id} home={{ id: match.home_team_id, name: match.home_team?.name ?? null }} away={{ id: match.away_team_id, name: match.away_team?.name ?? null }} />
+                          )}
                           {isAdmin && (
                             <button
                               onClick={() => {
