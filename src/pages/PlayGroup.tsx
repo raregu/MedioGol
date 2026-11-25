@@ -186,7 +186,7 @@ export const PlayGroup = () => {
           )}
           {!user && view.me && (
             <p className="text-xs text-mg-muted text-center">
-              Tu nombre quedó guardado en este teléfono. <a href="/register" className="font-bold text-mg-pitch-deep underline">Crea tu cuenta</a> para ver tus partidos en el Inicio.
+              Tu apodo quedó guardado en este teléfono. <a href="/register" className="font-bold text-mg-pitch-deep underline">Crea tu cuenta</a> para ver tus partidos en el Inicio.
             </p>
           )}
         </div>

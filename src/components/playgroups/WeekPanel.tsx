@@ -3,7 +3,7 @@ import { Check, Copy, CreditCard, MessageCircle, UserPlus } from 'lucide-react';
 import { PlayMember } from '../../types/playGroups';
 import { byQueue, fmtMoment, formatPerPerson, groupLink, isIn, listMessage, playErrorText, waLink } from '../../utils/playGroups';
 import { primaryBtn, secondaryBtn } from '../payments/PaymentsUi';
-import { CHIP, PanelProps, card, smallBtn } from './shared';
+import { CHIP, PanelProps, PlayCall, card, smallBtn } from './shared';
 
 /** La semana: mi estado (voy / no voy / invitado / pagué) y quiénes van, en espera y no van. */
 export const WeekPanel = ({ view, call, token }: PanelProps) => {
@@ -115,6 +115,8 @@ export const WeekPanel = ({ view, call, token }: PanelProps) => {
         </section>
       )}
 
+      {me && <MyNick groupId={group.id} nick={me.name} call={call} token={token} />}
+
       {error && <p role="alert" className="text-sm font-bold text-mg-danger">{error}</p>}
 
       {admin && !played && (
@@ -223,3 +225,43 @@ const Row = ({ m, me, admin, played, priced, busy, onOut, onPaid, pendingLabel }
     {admin && !played && <button type="button" className={smallBtn} disabled={!!busy} onClick={onOut}>No va</button>}
   </li>
 );
+
+/** "Tu apodo: Pin · Cambiar" — el jugador cambia cómo lo ven en la lista. */
+const MyNick = ({ groupId, nick, call, token }: { groupId: string; nick: string; call: PlayCall; token: string | null }) => {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(nick);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (!editing) {
+    return (
+      <p className="text-sm text-mg-muted flex flex-wrap items-center gap-2">
+        Te ven como <span className="font-extrabold text-mg-ink">{nick}</span>
+        <button type="button" className="font-bold text-mg-pitch-deep underline min-h-[32px]" onClick={() => { setValue(nick); setEditing(true); }}>
+          Cambiar mi apodo
+        </button>
+      </p>
+    );
+  }
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!value.trim() || value.trim() === nick) return setEditing(false);
+    setBusy(true);
+    setError(null);
+    const { error: err } = await call('play_set_nickname', { p_group: groupId, p_name: value.trim(), p_token: token });
+    setBusy(false);
+    if (err) setError(playErrorText(err, 'No pudimos cambiar tu apodo.'));
+    else setEditing(false);
+  };
+  return (
+    <form onSubmit={save} className="space-y-1">
+      <div className="flex flex-wrap gap-2">
+        <input aria-label="Tu apodo" autoFocus maxLength={20} value={value} onChange={(e) => setValue(e.target.value)}
+          className="flex-1 min-w-[10rem] min-h-[40px] px-3 border border-mg-line-strong rounded-mg-md bg-mg-surface text-sm" placeholder="Ej: Pin, El Mago" />
+        <button type="submit" className={smallBtn} disabled={busy || !value.trim()}>Guardar</button>
+        <button type="button" className={smallBtn} onClick={() => { setEditing(false); setError(null); }}>Cancelar</button>
+      </div>
+      {error && <p role="alert" className="text-sm font-bold text-mg-danger">{error}</p>}
+    </form>
+  );
+};

@@ -57,6 +57,7 @@ export interface PlayMember {
 
 /** Solo lo ve el organizador. */
 export interface PlayMemberPrivate {
+  real_name?: string | null;
   position: PlayPosition | null;
   stars: number | null;
   rating: number;

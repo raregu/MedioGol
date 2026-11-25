@@ -16,7 +16,7 @@ export const JoinPanel = ({ view, onJoined }: { view: PlayGroupView; onJoined: (
   const { profile } = useAuth();
   const code = view.group.invite_code;
   const unclaimed = view.members.filter((m) => !m.claimed).sort((a, b) => a.name.localeCompare(b.name));
-  const [name, setName] = useState(profile?.full_name || '');
+  const [name, setName] = useState((profile?.full_name || '').trim().split(/\s+/)[0]?.slice(0, 20) || '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -53,7 +53,7 @@ export const JoinPanel = ({ view, onJoined }: { view: PlayGroupView; onJoined: (
       {unclaimed.length > 0 && (
         <section className={card} aria-labelledby="who-are-you">
           <h2 id="who-are-you" className="text-lg font-extrabold">¿Quién eres?</h2>
-          <p className="text-sm text-mg-muted">Toca tu nombre. Queda guardado en este teléfono y no tienes que volver a elegirlo.</p>
+          <p className="text-sm text-mg-muted">Toca tu apodo. Queda guardado en este teléfono y no tienes que volver a elegirlo.</p>
           <ul className="flex flex-wrap gap-2">
             {unclaimed.map((m) => (
               <li key={m.id}>
@@ -65,9 +65,9 @@ export const JoinPanel = ({ view, onJoined }: { view: PlayGroupView; onJoined: (
       )}
       <form onSubmit={join} className={card} aria-labelledby="new-player">
         <h2 id="new-player" className="text-lg font-extrabold">{unclaimed.length > 0 ? '¿No estás en la lista?' : 'Súmate al grupo'}</h2>
-        <p className="text-sm text-mg-muted">Entras como suplente. El organizador decide quiénes son fijos.</p>
+        <p className="text-sm text-mg-muted">¿Cómo te dicen en la cancha? Ese apodo es el que verán todos. Entras como suplente; el organizador decide quiénes son fijos.</p>
         <div className="flex flex-wrap gap-2">
-          <input aria-label="Tu nombre" className={`${fieldClass} flex-1 min-w-[10rem]`} value={name} maxLength={40} onChange={(e) => setName(e.target.value)} placeholder="Tu nombre" required />
+          <input aria-label="Tu apodo" className={`${fieldClass} flex-1 min-w-[10rem]`} value={name} maxLength={20} onChange={(e) => setName(e.target.value)} placeholder="Ej: Pin, El Mago, Chino" required />
           <button type="submit" className={primaryBtn} disabled={busy || !name.trim()}>Entrar</button>
         </div>
         {!profile && <p className="text-xs text-mg-muted">No necesitas cuenta. Si la creas, ves tus partidos en el Inicio de MedioGol.</p>}

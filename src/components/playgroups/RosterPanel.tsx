@@ -18,6 +18,7 @@ export const RosterPanel = ({ view, call }: PanelProps) => {
   const { members, group } = view;
   const priv = view.private || {};
   const [name, setName] = useState('');
+  const [realName, setRealName] = useState('');
   const [role, setRole] = useState<'fixed' | 'sub'>('fixed');
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -35,10 +36,13 @@ export const RosterPanel = ({ view, call }: PanelProps) => {
     if (!name.trim()) return;
     setBusy('add');
     setError(null);
-    const { error: err } = await call('play_member_add', { p_group: group.id, p_name: name.trim(), p_role: role });
+    const { error: err } = await call('play_member_add', { p_group: group.id, p_name: name.trim(), p_role: role, p_real_name: realName.trim() || null });
     setBusy(null);
     if (err) setError(playErrorText(err, 'No pudimos agregar al jugador.'));
-    else setName('');
+    else {
+      setName('');
+      setRealName('');
+    }
   };
 
   const pct = (id: string) => {
@@ -62,7 +66,10 @@ export const RosterPanel = ({ view, call }: PanelProps) => {
     return (
       <li key={m.id} className="py-3 space-y-2">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="font-bold flex-1 min-w-[8rem]">{m.name}</span>
+          <span className="flex-1 min-w-[8rem]">
+            <span className="font-bold">{m.name}</span>
+            {p?.real_name && <span className="block text-xs text-mg-muted">{p.real_name}</span>}
+          </span>
           {m.is_admin && <span className={`${CHIP} bg-mg-navy text-mg-on-navy`}>Admin</span>}
           {!m.claimed && <span className={`${CHIP} bg-mg-surface-2 text-mg-muted`} title="Aún no abre el link">Sin link</span>}
           {a != null && <span className="text-xs font-bold text-mg-muted">{a}% asistencia</span>}
@@ -86,6 +93,7 @@ export const RosterPanel = ({ view, call }: PanelProps) => {
         </div>
         <details className="text-sm">
           <summary className="cursor-pointer text-mg-muted font-bold min-h-[32px]">Más opciones</summary>
+          <NameEdit key={`${m.name}|${p?.real_name ?? ''}`} nick={m.name} realName={p?.real_name ?? ''} busy={busy === m.id} onSave={(nick, real) => update(m, { name: nick, real_name: real })} />
           <div className="flex flex-wrap gap-2 pt-2">
             <button type="button" className={smallBtn} disabled={busy === m.id} onClick={() => update(m, { is_admin: !m.is_admin })}>{m.is_admin ? 'Quitar admin' : 'Hacer admin'}</button>
             {m.claimed && <button type="button" className={smallBtn} disabled={busy === m.id} onClick={() => update(m, { reset_claim: true })} title="Si cambió de teléfono">Liberar teléfono</button>}
@@ -117,14 +125,15 @@ export const RosterPanel = ({ view, call }: PanelProps) => {
       <form onSubmit={add} className={card} aria-labelledby="add-title">
         <h2 id="add-title" className="font-extrabold">Agregar jugador</h2>
         <div className="flex flex-wrap gap-2">
-          <input aria-label="Nombre" className={`${fieldClass} flex-1 min-w-[10rem]`} value={name} maxLength={40} onChange={(e) => setName(e.target.value)} placeholder="Nombre como lo conocen" />
+          <input aria-label="Apodo" className={`${fieldClass} flex-1 min-w-[8rem]`} value={name} maxLength={20} onChange={(e) => setName(e.target.value)} placeholder="Apodo (ej: Pin)" />
+          <input aria-label="Nombre real (opcional)" className={`${fieldClass} flex-1 min-w-[10rem]`} value={realName} maxLength={60} onChange={(e) => setRealName(e.target.value)} placeholder="Nombre real (opcional)" />
           <select aria-label="Tipo" className={`${fieldClass} !w-auto`} value={role} onChange={(e) => setRole(e.target.value as 'fixed' | 'sub')}>
             <option value="fixed">Fijo</option>
             <option value="sub">Suplente</option>
           </select>
           <button type="submit" className={primaryBtn} disabled={busy === 'add' || !name.trim()}><UserPlus className="h-4 w-4" aria-hidden="true" /> Agregar</button>
         </div>
-        <p className="text-xs text-mg-muted">Cuando abran el link del grupo eligen su nombre y queda en su teléfono. También pueden entrar solos como suplentes.</p>
+        <p className="text-xs text-mg-muted">En la lista y en WhatsApp sale el apodo. El nombre real solo lo ves tú. Cuando abran el link eligen su apodo y queda en su teléfono; también pueden entrar solos como suplentes.</p>
       </form>
 
       {error && <p role="alert" className="text-sm font-bold text-mg-danger">{error}</p>}
@@ -137,7 +146,27 @@ export const RosterPanel = ({ view, call }: PanelProps) => {
         <h2 id="subs-title" className="font-extrabold">Suplentes · {subs.length}</h2>
         {subs.length ? <ul className="divide-y divide-mg-line">{subs.map(renderRow)}</ul> : <p className="text-sm text-mg-muted">Aún no hay suplentes.</p>}
       </section>
-      <p className="text-xs text-mg-muted">Las estrellas, la posición y el nivel solo los ves tú (y los admin del grupo). Sirven para armar equipos parejos.</p>
+      <p className="text-xs text-mg-muted">El nombre real, las estrellas, la posición y el nivel solo los ves tú (y los admin del grupo). Sirven para armar equipos parejos.</p>
     </div>
+  );
+};
+
+/** Editar apodo y nombre real de un jugador (organizador). */
+const NameEdit = ({ nick, realName, busy, onSave }: { nick: string; realName: string; busy: boolean; onSave: (nick: string, real: string) => void }) => {
+  const [n, setN] = useState(nick);
+  const [r, setR] = useState(realName);
+  const changed = n.trim() !== nick || r.trim() !== realName;
+  return (
+    <form
+      className="flex flex-wrap gap-2 pt-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (n.trim() && changed) onSave(n.trim(), r.trim());
+      }}
+    >
+      <input aria-label={`Apodo de ${nick}`} className={`${fieldClass} !w-auto flex-1 min-w-[7rem] !min-h-[40px] text-sm`} value={n} maxLength={20} onChange={(e) => setN(e.target.value)} placeholder="Apodo" />
+      <input aria-label={`Nombre real de ${nick}`} className={`${fieldClass} !w-auto flex-1 min-w-[9rem] !min-h-[40px] text-sm`} value={r} maxLength={60} onChange={(e) => setR(e.target.value)} placeholder="Nombre real (opcional)" />
+      <button type="submit" className={smallBtn} disabled={busy || !changed || !n.trim()}>Guardar</button>
+    </form>
   );
 };
