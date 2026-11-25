@@ -24,6 +24,7 @@ import { ResetPassword } from './pages/ResetPassword';
 import { ConfirmEmail } from './pages/ConfirmEmail';
 import { PlayGroups } from './pages/PlayGroups';
 import { PlayGroup } from './pages/PlayGroup';
+import { Callup } from './pages/Callup';
 
 function App() {
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
@@ -60,6 +61,7 @@ function App() {
   if (currentPath === '/my-teams') return <MyTeams />;
   if (currentPath === '/grupos') return <PlayGroups />;
   if (currentPath.startsWith('/grupos/') || currentPath.startsWith('/g/')) return <PlayGroup key={currentPath} />;
+  if (currentPath.startsWith('/c/')) return <Callup key={currentPath} />;
   if (currentPath === '/messages') return <Messages />;
   if (currentPath === '/admin') return <Admin />;
   if (currentPath === '/live-matches') return <LiveMatches />;
