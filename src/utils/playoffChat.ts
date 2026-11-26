@@ -22,6 +22,9 @@ export interface PlayoffRow {
   match_date: string | null;
   /** Cancha (migración 20261119120000; null si no está aplicada o no se ha definido) */
   venue?: string | null;
+  /** Penales de la definición (migración 20261126160000; null si no hubo o no está aplicada) */
+  team1_penalties?: number | null;
+  team2_penalties?: number | null;
   status: string;
 }
 
@@ -41,8 +44,9 @@ export const fetchPlayoffs = async (championshipIds: string[]): Promise<PlayoffR
     'id, team1_id, team2_id, championship_id, round, match_number, leg, team1_score, team2_score, match_date, status, team1:team1_id(name, logo_url), team2:team2_id(name, logo_url), winner:winner_id(name)';
   const query = (cols: string) =>
     supabase.from('playoff_matches').select(cols).in('championship_id', championshipIds.slice(0, 50)).order('match_number').limit(500);
-  let { data, error } = await query(`${base}, venue`);
-  // Sin la columna venue (migración aún no aplicada): se pide sin ella
+  let { data, error } = await query(`${base}, venue, team1_penalties, team2_penalties`);
+  // Columnas nuevas aún no aplicadas en la base: se piden sin ellas
+  if (error?.code === '42703') ({ data, error } = await query(`${base}, venue`));
   if (error?.code === '42703') ({ data, error } = await query(base));
   if (error) {
     console.error('playoff_matches', error);
@@ -60,6 +64,8 @@ export const fetchPlayoffs = async (championshipIds: string[]): Promise<PlayoffR
     team2_score: r.team2_score,
     match_date: r.match_date,
     venue: r.venue ?? null,
+    team1_penalties: r.team1_penalties ?? null,
+    team2_penalties: r.team2_penalties ?? null,
     status: r.status,
     team1_name: one(r.team1)?.name?.trim() ?? null,
     team2_name: one(r.team2)?.name?.trim() ?? null,
