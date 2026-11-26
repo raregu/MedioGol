@@ -375,6 +375,9 @@ export interface PlayoffMatch {
   match_date?: string;
   /** Cancha (migración 20261119120000) */
   venue?: string | null;
+  /** Penales de la definición, si hubo (migración 20261126160000) */
+  team1_penalties?: number | null;
+  team2_penalties?: number | null;
   status: MatchStatus;
   created_at: string;
   updated_at: string;
