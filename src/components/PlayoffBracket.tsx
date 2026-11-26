@@ -132,8 +132,11 @@ export default function PlayoffBracket({ championship, onMatchClick }: PlayoffBr
               {match.team1?.name || 'TBD'}
             </span>
           </div>
-          <span className="text-lg font-bold ml-2">
+          <span className="text-lg font-bold ml-2 whitespace-nowrap">
             {match.team1_id ? match.team1_score : '-'}
+            {match.status === 'finished' && match.team1_penalties != null && (
+              <span className="ml-1 text-xs font-semibold text-gray-500">({match.team1_penalties})</span>
+            )}
           </span>
         </div>
 
@@ -148,8 +151,11 @@ export default function PlayoffBracket({ championship, onMatchClick }: PlayoffBr
               {match.team2?.name || 'TBD'}
             </span>
           </div>
-          <span className="text-lg font-bold ml-2">
+          <span className="text-lg font-bold ml-2 whitespace-nowrap">
             {match.team2_id ? match.team2_score : '-'}
+            {match.status === 'finished' && match.team2_penalties != null && (
+              <span className="ml-1 text-xs font-semibold text-gray-500">({match.team2_penalties})</span>
+            )}
           </span>
         </div>
 
