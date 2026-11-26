@@ -59,13 +59,38 @@ const TeamLogo = ({ name, url, size = 20, known = true }: { name: string; url?: 
   );
 };
 
-const Side = ({ name, logo, known, score, won, decided }: { name: string; logo?: string | null; known: boolean; score: number | null; won: boolean; decided: boolean }) => (
+const Side = ({
+  name,
+  logo,
+  known,
+  score,
+  pens,
+  won,
+  decided,
+}: {
+  name: string;
+  logo?: string | null;
+  known: boolean;
+  score: number | null;
+  pens?: number | null;
+  won: boolean;
+  decided: boolean;
+}) => (
   <div className={`flex items-center justify-between gap-2 px-2.5 py-1.5 ${won ? 'bg-mg-pitch-tint font-extrabold text-mg-ink' : decided ? 'text-mg-muted' : 'text-mg-ink font-semibold'}`}>
     <span className="flex items-center gap-2 min-w-0">
       <TeamLogo name={name} url={logo} known={known} />
       <span className="truncate text-[13px]">{name}</span>
     </span>
-    {score !== null && <span className="mg-num text-sm font-extrabold">{score}</span>}
+    {score !== null && (
+      <span className="mg-num text-sm font-extrabold whitespace-nowrap">
+        {score}
+        {pens != null && (
+          <span className="ml-1 text-[11px] font-bold text-mg-muted" aria-label={`${pens} en penales`}>
+            ({pens})
+          </span>
+        )}
+      </span>
+    )}
   </div>
 );
 
@@ -74,14 +99,21 @@ const MatchBox = ({ m, prev, next }: { m: PlayoffRow; prev?: string; next?: bool
   const dated = !decided && !!m.match_date;
   const t1 = m.team1_name ?? (prev ? `Ganador ${prev} ${m.match_number * 2 - 1}` : 'Por definir');
   const t2 = m.team2_name ?? (prev ? `Ganador ${prev} ${m.match_number * 2}` : 'Por definir');
+  // En ida y vuelta el ganador de la llave se marca solo en la vuelta
+  const showWin = decided && !!m.winner_name && m.leg !== 'first_leg';
   return (
     <div
       className={`rounded-mg-md bg-mg-surface overflow-hidden divide-y divide-mg-line ${
         dated && next ? 'border-2 border-mg-gold shadow-mg-card' : 'border border-mg-line'
       }`}
     >
-      <Side name={t1} logo={m.team1_logo} known={!!m.team1_name} score={decided ? m.team1_score : null} won={decided && !!m.winner_name && m.winner_name === m.team1_name} decided={decided} />
-      <Side name={t2} logo={m.team2_logo} known={!!m.team2_name} score={decided ? m.team2_score : null} won={decided && !!m.winner_name && m.winner_name === m.team2_name} decided={decided} />
+      {m.leg && (
+        <p className="px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-mg-muted bg-mg-surface-2">
+          {m.leg === 'first_leg' ? 'Ida' : 'Vuelta'}
+        </p>
+      )}
+      <Side name={t1} logo={m.team1_logo} known={!!m.team1_name} score={decided ? m.team1_score : null} pens={decided ? m.team1_penalties : null} won={showWin && m.winner_name === m.team1_name} decided={decided} />
+      <Side name={t2} logo={m.team2_logo} known={!!m.team2_name} score={decided ? m.team2_score : null} pens={decided ? m.team2_penalties : null} won={showWin && m.winner_name === m.team2_name} decided={decided} />
       {!decided &&
         (dated ? (
           <p className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-extrabold ${next ? 'bg-mg-gold text-mg-on-gold' : 'bg-mg-surface-2 text-mg-ink'}`}>
@@ -136,6 +168,7 @@ export const LeaguePlayoffsView = ({ series, rows }: { series: Championship[]; r
   // Si toda la jornada es en la misma cancha, va una vez en la cabecera; si no, en cada partido
   const venues = Array.from(new Set(nextRound.list.map((m) => m.venue).filter((v): v is string => !!v)));
   const sharedVenue = venues.length === 1 && nextRound.list.every((m) => m.venue === venues[0]) ? venues[0] : null;
+  const twoLegs = rows.some((r) => !!r.leg);
   if (withPlayoffs.length === 0) {
     return <p className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-600">Los playoffs todavía no están armados.</p>;
   }
@@ -150,7 +183,9 @@ export const LeaguePlayoffsView = ({ series, rows }: { series: Championship[]; r
           <h2 id="league-playoffs-title" className="font-display text-2xl font-extrabold uppercase leading-7">
             Playoffs
           </h2>
-          <p className="text-sm text-mg-on-navy-muted">Los 8 mejores de cada serie, a un partido. Toca una serie para ver su cuadro completo.</p>
+          <p className="text-sm text-mg-on-navy-muted">
+            {twoLegs ? 'Llaves de ida y vuelta' : 'A un partido'}. Toca una serie para ver su cuadro completo.
+          </p>
         </div>
       </div>
       {nextRound.list.length > 0 && (
