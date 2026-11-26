@@ -232,7 +232,8 @@ export const LeagueDetail = () => {
                   onClick={() => setTab('playoffs')}
                   className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-amber-400 text-amber-950 px-3 py-1 text-xs font-black uppercase tracking-wide hover:bg-amber-300"
                 >
-                  <Trophy className="h-3.5 w-3.5" aria-hidden="true" /> Playoffs en curso
+                  <Trophy className="h-3.5 w-3.5" aria-hidden="true" />{' '}
+                  {series.length > 0 && series.every((s) => s.phase === 'finished') ? 'Torneo finalizado' : 'Playoffs en curso'}
                 </button>
               )}
               <h1 className="text-3xl font-black leading-tight">{league.name}</h1>
