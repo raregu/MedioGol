@@ -35,7 +35,7 @@ const nextRoundOf = (rows: PlayoffRow[]) => {
 const ROUND_NAME: Record<string, string> = { round_of_16: 'Octavos', quarterfinals: 'Cuartos', semifinals: 'Semifinal', final: 'Final' };
 
 /** Escudo del club (o sus iniciales si no tiene). "Por definir" lleva un escudo vacío. */
-const TeamLogo = ({ name, url, size = 20, known = true }: { name: string; url?: string | null; size?: number; known?: boolean }) => {
+export const TeamLogo = ({ name, url, size = 20, known = true }: { name: string; url?: string | null; size?: number; known?: boolean }) => {
   const style = { width: size, height: size };
   if (url) return <img src={url} alt="" loading="lazy" style={style} className="rounded-full object-cover bg-white border border-mg-line flex-shrink-0" />;
   const ini = known
@@ -45,7 +45,7 @@ const TeamLogo = ({ name, url, size = 20, known = true }: { name: string; url?: 
         .filter((w) => w.length > 2 && !/^(club|deportivo|csd|cdi|cd|los|las|del|independiente)$/i.test(w))
         .slice(0, 2)
         .map((w) => w[0]?.toUpperCase())
-        .join('')
+        .join('') || name.trim().charAt(0).toUpperCase()
     : '';
   return (
     <span

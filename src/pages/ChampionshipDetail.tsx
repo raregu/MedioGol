@@ -22,6 +22,16 @@ import { SponsorsManagementModal } from '../components/admin/SponsorsManagementM
 import { ChampionshipChat } from '../components/ChampionshipChat';
 import { ChampionshipGallery } from '../components/ChampionshipGallery';
 import { LeagueBanner } from '../components/LeagueBanner';
+import { seriesLabel } from '../utils/leagueStandings';
+
+/** "feb – may 2026" a partir de fechas YYYY-MM-DD (sin correr el día por la zona horaria). */
+const fmtSeason = (start: string, end?: string | null) => {
+  const d = (v: string) => new Date(`${v.slice(0, 10)}T12:00:00`);
+  const m = (v: string) => d(v).toLocaleDateString('es-CL', { month: 'short' }).replace('.', '');
+  const y = (v: string) => d(v).getFullYear();
+  if (!end) return d(start).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' });
+  return y(start) === y(end) ? `${m(start)} – ${m(end)} ${y(end)}` : `${m(start)} ${y(start)} – ${m(end)} ${y(end)}`;
+};
 
 interface TopScorer {
   player_id: string;
@@ -524,6 +534,18 @@ export const ChampionshipDetail = () => {
     );
   }
 
+  const sectionTabs: { key: DetailTab; label: string; icon: JSX.Element }[] = [
+    ...(championship.phase === 'playoffs' || championship.phase === 'finished'
+      ? [{ key: 'playoffs' as DetailTab, label: 'Playoffs', icon: <Zap className="h-4 w-4" aria-hidden="true" /> }]
+      : []),
+    { key: 'standings', label: 'Posiciones', icon: <BarChart2 className="h-4 w-4" aria-hidden="true" /> },
+    { key: 'matches', label: 'Partidos', icon: <Calendar className="h-4 w-4" aria-hidden="true" /> },
+    { key: 'teams', label: 'Equipos', icon: <Users className="h-4 w-4" aria-hidden="true" /> },
+    { key: 'scorers', label: 'Goleadores', icon: <Target className="h-4 w-4" aria-hidden="true" /> },
+    { key: 'sanctions', label: 'Sanciones', icon: <AlertTriangle className="h-4 w-4" aria-hidden="true" /> },
+    { key: 'gallery', label: 'Galería', icon: <Image className="h-4 w-4" aria-hidden="true" /> },
+  ];
+
   return (
     <Layout>
       <div className="space-y-6">
@@ -537,64 +559,85 @@ export const ChampionshipDetail = () => {
 
         {leagueNotice && <LeagueNoticeBar notice={leagueNotice} showBody className="rounded-r-xl shadow-sm" />}
 
-        <div className="bg-gradient-to-r from-emerald-600 to-teal-600 rounded-xl shadow-lg overflow-hidden">
-          <div className="p-4 text-white">
-            <div className="flex items-center gap-3 mb-3">
-              {championship.image_url ? (
-                <img
-                  src={championship.image_url}
-                  alt={championship.name}
-                  className="h-16 w-16 rounded-xl object-cover flex-shrink-0 border-2 border-white/40 shadow"
-                />
-              ) : (
-                <Trophy className="h-8 w-8 flex-shrink-0" />
-              )}
-              <div className="flex-1">
-                <h1 className="text-2xl font-bold">{championship.name}</h1>
-                <span className="inline-block px-2 py-0.5 bg-white/20 rounded-full text-xs font-medium capitalize mt-1">
-                  {championship.sport}
-                </span>
-              </div>
-              <div className="flex-shrink-0 self-start">
-                <FollowButton championshipId={championship.id} tone="onDark" />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm text-emerald-50">
-              <div className="flex items-center gap-1.5">
-                <MapPin className="h-4 w-4" />
-                <span className="truncate">{championship.venue}</span>
-              </div>
-              {championship.start_date && (
-                <div className="flex items-center gap-1.5">
-                  <Calendar className="h-4 w-4" />
-                  <span>{new Date(championship.start_date).toLocaleDateString()}</span>
-                </div>
-              )}
-              {championship.contact_phone && (
-                <div className="flex items-center gap-1.5">
-                  <Phone className="h-4 w-4" />
-                  <a href={`tel:${championship.contact_phone}`} className="hover:text-white transition-colors truncate">
+        <section className="bg-emerald-950 text-white rounded-2xl shadow-lg overflow-hidden" aria-labelledby="championship-title">
+          <div className="p-5 sm:p-6 flex flex-wrap items-center gap-4 sm:gap-5">
+            {championship.image_url ? (
+              <img
+                src={championship.image_url}
+                alt=""
+                className="h-16 w-16 sm:h-20 sm:w-20 rounded-full object-cover border-4 border-amber-400 bg-white flex-shrink-0"
+              />
+            ) : (
+              <span className="h-16 w-16 sm:h-20 sm:w-20 rounded-full bg-white text-emerald-900 flex items-center justify-center border-4 border-amber-400 flex-shrink-0">
+                <Trophy className="h-8 w-8" aria-hidden="true" />
+              </span>
+            )}
+            <div className="flex-1 min-w-[200px]">
+              <p className="text-xs font-bold tracking-widest uppercase text-emerald-300">
+                {league ? 'Serie' : championship.sport || 'Campeonato'}
+                {championship.phase === 'finished' ? ' · Finalizada' : championship.phase === 'playoffs' ? ' · Playoffs' : ''}
+              </p>
+              <h1 id="championship-title" className="text-3xl font-black leading-tight">
+                {league ? seriesLabel(championship) : championship.name}
+              </h1>
+              <div className="flex flex-wrap gap-x-5 gap-y-1 mt-2 text-sm text-emerald-100">
+                {championship.venue && (
+                  <span className="flex items-center gap-1.5">
+                    <MapPin className="h-4 w-4" aria-hidden="true" />
+                    {championship.venue}
+                  </span>
+                )}
+                {championship.start_date && (
+                  <span className="flex items-center gap-1.5">
+                    <Calendar className="h-4 w-4" aria-hidden="true" />
+                    {fmtSeason(championship.start_date, championship.end_date)}
+                  </span>
+                )}
+                {championship.contact_phone && (
+                  <a href={`tel:${championship.contact_phone}`} className="flex items-center gap-1.5 hover:text-white">
+                    <Phone className="h-4 w-4" aria-hidden="true" />
                     {championship.contact_phone}
                   </a>
-                </div>
-              )}
-              {championship.rules_pdf_url && (
-                <div className="flex items-center gap-1.5 col-span-2 md:col-span-1">
-                  <FileText className="h-4 w-4" />
-                  <a
-                    href={championship.rules_pdf_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="hover:text-white transition-colors underline truncate"
-                  >
-                    Ver Bases
+                )}
+                {championship.rules_pdf_url && (
+                  <a href={championship.rules_pdf_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 underline hover:text-white">
+                    <FileText className="h-4 w-4" aria-hidden="true" />
+                    Ver bases
                   </a>
-                </div>
+                )}
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {championship.champion?.name && (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-400 text-amber-950 px-3 py-1.5 text-sm font-black">
+                  <Trophy className="h-4 w-4" aria-hidden="true" /> Campeón: {championship.champion.name.trim()}
+                </span>
               )}
+              <FollowButton championshipId={championship.id} tone="onDark" />
             </div>
           </div>
-        </div>
+          {/* Secciones: mismo estilo que la página de la liga */}
+          <nav className="px-2 sm:px-4 flex gap-1 overflow-x-auto border-t border-white/10" aria-label="Secciones de la serie">
+            {sectionTabs.map(({ key, label, icon }) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setActiveTab(key)}
+                aria-pressed={activeTab === key}
+                className={`inline-flex items-center gap-1.5 whitespace-nowrap px-3 sm:px-4 py-3 text-sm font-bold border-b-4 transition-colors ${
+                  activeTab === key
+                    ? 'border-amber-400 text-white'
+                    : key === 'playoffs'
+                      ? 'border-transparent text-amber-300 hover:text-amber-200'
+                      : 'border-transparent text-emerald-200 hover:text-white'
+                }`}
+              >
+                {icon}
+                {label}
+              </button>
+            ))}
+          </nav>
+        </section>
 
         {canPayments && !isAdmin && (
           <div className="bg-white rounded-lg shadow-md p-4">
@@ -609,52 +652,53 @@ export const ChampionshipDetail = () => {
         )}
 
         {isAdmin && (
-          <div className="bg-white rounded-lg shadow-md p-4">
-            <div className="flex flex-wrap gap-2">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-3 flex flex-wrap items-center gap-2" aria-label="Herramientas del organizador">
+            <span className="text-xs font-black uppercase tracking-wider text-gray-500 mr-1">Organizador</span>
+            <div className="contents">
               {canPayments && (
                 <a
                   href={`/pagos?championship=${championshipId}`}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-mg-pitch text-mg-on-pitch rounded-lg font-medium text-sm"
+                  className="inline-flex items-center gap-2 min-h-[40px] px-3 rounded-lg border border-gray-300 bg-white text-gray-800 hover:border-emerald-600 hover:text-emerald-800 font-bold text-sm transition-colors"
                 >
-                  <Wallet className="h-4 w-4" aria-hidden="true" />
+                  <Wallet className="h-4 w-4 text-emerald-700" aria-hidden="true" />
                   Pagos
                 </a>
               )}
               <button
                 onClick={() => setShowSanctionsModal(true)}
-                className="flex items-center gap-2 px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium text-sm"
+                className="inline-flex items-center gap-2 min-h-[40px] px-3 rounded-lg border border-gray-300 bg-white text-gray-800 hover:border-emerald-600 hover:text-emerald-800 font-bold text-sm transition-colors"
               >
-                <Shield className="h-4 w-4" />
+                <Shield className="h-4 w-4 text-red-600" aria-hidden="true" />
                 Gestionar Sanciones
               </button>
               <button
                 onClick={() => setShowPlayoffConfigModal(true)}
-                className="flex items-center gap-2 px-3 py-1.5 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors font-medium text-sm"
+                className="inline-flex items-center gap-2 min-h-[40px] px-3 rounded-lg border border-gray-300 bg-white text-gray-800 hover:border-emerald-600 hover:text-emerald-800 font-bold text-sm transition-colors"
               >
-                <Zap className="h-4 w-4" />
+                <Zap className="h-4 w-4 text-amber-600" aria-hidden="true" />
                 Configurar Playoffs
               </button>
               {playoffConfig && championship?.phase === 'regular' && (
                 <button
                   onClick={handleGeneratePlayoffs}
                   disabled={generatingPlayoffs}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium text-sm disabled:opacity-50"
+                  className="inline-flex items-center gap-2 min-h-[40px] px-3 rounded-lg border border-gray-300 bg-white text-gray-800 hover:border-emerald-600 hover:text-emerald-800 font-bold text-sm transition-colors disabled:opacity-50"
                 >
-                  <Trophy className="h-4 w-4" />
+                  <Trophy className="h-4 w-4 text-emerald-700" aria-hidden="true" />
                   {generatingPlayoffs ? 'Generando...' : 'Generar Playoffs'}
                 </button>
               )}
               <button
                 onClick={() => setShowSponsorsModal(true)}
-                className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
+                className="inline-flex items-center gap-2 min-h-[40px] px-3 rounded-lg border border-gray-300 bg-white text-gray-800 hover:border-emerald-600 hover:text-emerald-800 font-bold text-sm transition-colors"
               >
-                <Award className="h-4 w-4" />
+                <Award className="h-4 w-4 text-blue-600" aria-hidden="true" />
                 Gestionar Sponsors
               </button>
               {/* Un solo lugar para administrar: abre el panel en la misma sección */}
               <a
                 href={`/admin?championship=${championshipId}&tab=${activeTab === 'teams' ? 'teams' : 'matches'}`}
-                className="flex items-center gap-2 px-3 py-1.5 bg-mg-navy text-mg-on-navy rounded-lg font-extrabold text-sm"
+                className="inline-flex items-center gap-2 min-h-[40px] px-3 rounded-lg bg-emerald-950 text-white hover:bg-emerald-900 font-black text-sm sm:ml-auto"
               >
                 <Edit className="h-4 w-4" aria-hidden="true" />
                 Administrar esta serie
@@ -678,39 +722,7 @@ export const ChampionshipDetail = () => {
           </button>
         )}
 
-        <div className="bg-white rounded-xl shadow-md">
-          {/* Navegación por secciones — grilla de iconos, amigable en celular */}
-          <div className="p-3 border-b border-gray-100">
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-              {[
-                ...((championship?.phase === 'playoffs' || championship?.phase === 'finished')
-                  ? [{ key: 'playoffs', label: 'Playoffs', icon: <Zap className="h-5 w-5" /> }]
-                  : []),
-                { key: 'standings', label: 'Posiciones', icon: <BarChart2 className="h-5 w-5" /> },
-                { key: 'matches',   label: 'Partidos',   icon: <Calendar className="h-5 w-5" /> },
-                { key: 'teams',     label: 'Equipos',    icon: <Users className="h-5 w-5" /> },
-                { key: 'scorers',   label: 'Goleadores', icon: <Target className="h-5 w-5" /> },
-                { key: 'sanctions', label: 'Sanciones',  icon: <AlertTriangle className="h-5 w-5" /> },
-                { key: 'gallery', label: 'Galería', icon: <Image className="h-5 w-5" /> },
-              ].map(({ key, label, icon }) => (
-                <button
-                  key={key}
-                  onClick={() => setActiveTab(key as typeof activeTab)}
-                  className={`flex flex-col items-center gap-1 py-2.5 px-1 rounded-xl font-medium transition-all text-xs ${
-                    activeTab === key
-                      ? 'bg-emerald-600 text-white shadow-sm'
-                      : key === 'playoffs'
-                        ? 'bg-amber-100 text-amber-900 ring-1 ring-amber-300 hover:bg-amber-200'
-                        : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800'
-                  }`}
-                >
-                  {icon}
-                  <span>{label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm">
           <div className="p-3 sm:p-6">
             {activeTab === 'standings' && (
               <div>
