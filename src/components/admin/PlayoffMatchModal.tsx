@@ -27,6 +27,9 @@ export default function PlayoffMatchModal({ match, onClose, onSuccess }: Playoff
   };
   const [matchDate, setMatchDate] = useState(match.match_date ? toLocalInput(match.match_date) : '');
   const [venue, setVenue] = useState(match.venue ?? '');
+  // Penales (opcional): deciden la llave cuando el marcador (o el global) queda igualado
+  const [pen1, setPen1] = useState<string>(match.team1_penalties != null ? String(match.team1_penalties) : '');
+  const [pen2, setPen2] = useState<string>(match.team2_penalties != null ? String(match.team2_penalties) : '');
   const [status, setStatus] = useState(match.status);
   const [availableTeams, setAvailableTeams] = useState<Team[]>([]);
 
@@ -76,6 +79,26 @@ export default function PlayoffMatchModal({ match, onClose, onSuccess }: Playoff
       };
       // Solo se envía si cambió (así el formulario sigue funcionando aunque falte la columna)
       if (venue.trim() !== (match.venue ?? '')) updateData.venue = venue.trim() || null;
+      const p1 = pen1.trim() === '' ? null : Math.max(0, Math.floor(Number(pen1)));
+      const p2 = pen2.trim() === '' ? null : Math.max(0, Math.floor(Number(pen2)));
+      if ((p1 === null) !== (p2 === null)) {
+        alert('Completa los penales de ambos equipos (o deja los dos vacíos)');
+        setLoading(false);
+        return;
+      }
+      if (p1 !== null && p1 === p2) {
+        alert('La tanda de penales no puede terminar empatada');
+        setLoading(false);
+        return;
+      }
+      if (p1 !== (match.team1_penalties ?? null) || p2 !== (match.team2_penalties ?? null)) {
+        updateData.team1_penalties = p1;
+        updateData.team2_penalties = p2;
+      }
+      /** Ganador por goles; si quedan iguales, por penales (si se registraron). */
+      const pick = (g1: number, g2: number) =>
+        g1 !== g2 ? (g1 > g2 ? team1Id : team2Id) : p1 !== null && p2 !== null ? (p1 > p2 ? team1Id : team2Id) : null;
+      let finalWinner: string | null = null;
 
       if (status === 'finished') {
         if (match.leg) {
@@ -105,7 +128,12 @@ export default function PlayoffMatchModal({ match, onClose, onSuccess }: Playoff
           updateData.team2_aggregate_score = team2Aggregate;
 
           if (siblingMatch?.status === 'finished') {
-            const winnerId = team1Aggregate > team2Aggregate ? team1Id : team2Id;
+            const winnerId = pick(team1Aggregate, team2Aggregate);
+            if (!winnerId) {
+              alert('El global quedó igualado: registra los penales para definir quién avanza');
+              setLoading(false);
+              return;
+            }
             updateData.winner_id = winnerId;
 
             await supabase
@@ -114,7 +142,13 @@ export default function PlayoffMatchModal({ match, onClose, onSuccess }: Playoff
               .eq('id', siblingMatch.id);
           }
         } else {
-          const winnerId = team1Score > team2Score ? team1Id : team2Id;
+          const winnerId = pick(team1Score, team2Score);
+          if (!winnerId) {
+            alert('El partido quedó empatado: registra los penales para definir quién avanza');
+            setLoading(false);
+            return;
+          }
+          finalWinner = winnerId;
           updateData.winner_id = winnerId;
           updateData.team1_aggregate_score = team1Score;
           updateData.team2_aggregate_score = team2Score;
@@ -128,8 +162,8 @@ export default function PlayoffMatchModal({ match, onClose, onSuccess }: Playoff
 
       if (error) throw error;
 
-      if (status === 'finished' && match.round === 'final') {
-        await updateChampionship();
+      if (status === 'finished' && match.round === 'final' && finalWinner) {
+        await updateChampionship(finalWinner, finalWinner === team1Id ? team2Id : team1Id);
       }
 
       onSuccess();
@@ -142,10 +176,8 @@ export default function PlayoffMatchModal({ match, onClose, onSuccess }: Playoff
     }
   };
 
-  const updateChampionship = async () => {
+  const updateChampionship = async (winnerId: string, runnerUpId: string) => {
     try {
-      const winnerId = team1Score > team2Score ? team1Id : team2Id;
-      const runnerUpId = team1Score > team2Score ? team2Id : team1Id;
 
       console.log('Updating championship with:', {
         champion_team_id: winnerId,
@@ -298,6 +330,35 @@ export default function PlayoffMatchModal({ match, onClose, onSuccess }: Playoff
                 />
               </div>
             </div>
+
+            <fieldset>
+              <legend className="block text-sm font-medium text-gray-700 mb-1">Penales (solo si hubo definición)</legend>
+              <div className="flex items-center gap-4">
+                <input
+                  type="number"
+                  min="0"
+                  max="99"
+                  inputMode="numeric"
+                  aria-label={`Penales ${availableTeams.find((t) => t.id === team1Id)?.name ?? 'equipo 1'}`}
+                  value={pen1}
+                  onChange={(e) => setPen1(e.target.value)}
+                  placeholder="—"
+                  className="flex-1 w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <span className="text-sm font-bold text-gray-400">pen.</span>
+                <input
+                  type="number"
+                  min="0"
+                  max="99"
+                  inputMode="numeric"
+                  aria-label={`Penales ${availableTeams.find((t) => t.id === team2Id)?.name ?? 'equipo 2'}`}
+                  value={pen2}
+                  onChange={(e) => setPen2(e.target.value)}
+                  placeholder="—"
+                  className="flex-1 w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </fieldset>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
