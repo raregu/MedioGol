@@ -40,6 +40,7 @@ const TeamLogo = ({ name, url, size = 20, known = true }: { name: string; url?: 
   if (url) return <img src={url} alt="" loading="lazy" style={style} className="rounded-full object-cover bg-white border border-mg-line flex-shrink-0" />;
   const ini = known
     ? name
+        .replace(/\(.*?\)/g, ' ')
         .split(/\s+/)
         .filter((w) => w.length > 2 && !/^(club|deportivo|csd|cdi|cd|los|las|del|independiente)$/i.test(w))
         .slice(0, 2)
@@ -265,7 +266,10 @@ export const LeaguePlayoffsView = ({ series, rows }: { series: Championship[]; r
               <div className="overflow-x-auto">
                 <div className="grid gap-3 p-3 min-w-[540px]" style={{ gridTemplateColumns: `repeat(${rounds.length}, minmax(0, 1fr))` }}>
                   {rounds.map((r) => {
-                    const ms = list.filter((m) => m.round === r.id).sort((a, b) => a.match_number - b.match_number);
+                    const ms = list
+                      .filter((m) => m.round === r.id)
+                      // Cada llave junta: primero la ida y después la vuelta
+                      .sort((a, b) => a.match_number - b.match_number || Number(a.leg === 'second_leg') - Number(b.leg === 'second_leg'));
                     return (
                       <div key={r.id} className="flex flex-col">
                         <p className="text-[11px] font-black uppercase tracking-wider text-gray-500 mb-2">{r.label}</p>
