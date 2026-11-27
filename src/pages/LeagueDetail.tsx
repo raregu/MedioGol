@@ -134,6 +134,18 @@ export const LeagueDetail = () => {
   }, [leagueId]);
 
   const canManage = !!profile && !!league && (profile.role === 'admin_sistema' || league.admin_id === profile.id);
+  // Tesorero de la liga: ve el acceso a la caja aunque no administre la liga
+  const [isTreasurer, setIsTreasurer] = useState(false);
+  useEffect(() => {
+    if (!profile || !league || canManage) return setIsTreasurer(false);
+    let alive = true;
+    supabase.rpc('league_cash_role', { p_league: league.id }).then(({ data, error }) => {
+      if (alive) setIsTreasurer(!error && data === 'treasurer');
+    });
+    return () => {
+      alive = false;
+    };
+  }, [profile, league, canManage]);
   // Liga en playoffs: la pestaña Playoffs va primero y se abre por defecto
   const inPlayoffs = series.some((s) => s.phase === 'playoffs' || s.phase === 'finished');
   useEffect(() => {
@@ -265,6 +277,11 @@ export const LeagueDetail = () => {
               {canManage && (
                 <a href={`/pagos?league=${league.id}`} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-white text-emerald-950 font-bold text-sm hover:bg-emerald-50">
                   <Wallet className="h-4 w-4" aria-hidden="true" /> Pagos
+                </a>
+              )}
+              {isTreasurer && (
+                <a href={`/pagos?league=${league.id}&tab=caja`} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-white text-emerald-950 font-bold text-sm hover:bg-emerald-50">
+                  <Wallet className="h-4 w-4" aria-hidden="true" /> Caja
                 </a>
               )}
             </div>
