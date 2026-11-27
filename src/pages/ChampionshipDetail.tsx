@@ -5,7 +5,7 @@ import { useLeagueNotice } from '../hooks/useLeaguePosts';
 import { Layout } from '../components/Layout';
 import { supabase } from '../lib/supabase';
 import { Championship, Match, Team, TeamStanding, PlayoffConfig, PlayoffMatch, Advertisement, Sponsor, League } from '../types/database';
-import { Trophy, Calendar, MapPin, Users, Target, AlertCircle, Phone, FileText, CreditCard as Edit, Shield, Award, AlertTriangle, Eye, Trash2, Zap, Plus, BarChart2, Image, Wallet } from 'lucide-react';
+import { Trophy, Calendar, MapPin, Users, Target, AlertCircle, Phone, FileText, CreditCard as Edit, Shield, Award, AlertTriangle, Eye, Trash2, Zap, Plus, BarChart2, Image, Wallet, FileSpreadsheet } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { MatchResultModal } from '../components/admin/MatchResultModal';
 import { CallupButton } from '../components/callup/CallupButton';
@@ -13,6 +13,7 @@ import { CreateMatchModal } from '../components/admin/CreateMatchModal';
 import { SanctionsManagementModal } from '../components/admin/SanctionsManagementModal';
 import { MatchEventsModal } from '../components/MatchEventsModal';
 import { TeamPlayersModal } from '../components/TeamPlayersModal';
+import { RosterImportModal } from '../components/RosterImportModal';
 import PlayoffBracket from '../components/PlayoffBracket';
 import PlayoffConfigModal from '../components/admin/PlayoffConfigModal';
 import PlayoffMatchModal from '../components/admin/PlayoffMatchModal';
@@ -75,6 +76,7 @@ export const ChampionshipDetail = () => {
   type DetailTab = 'standings' | 'matches' | 'teams' | 'scorers' | 'sanctions' | 'playoffs' | 'gallery';
   // ?tab=playoffs (enlaces desde la liga) abre directo esa pestaña
   const tabParam = new URLSearchParams(window.location.search).get('tab') as DetailTab | null;
+  const [rosterTeam, setRosterTeam] = useState<{ id: string; name: string } | null>(null);
   const [activeTab, setActiveTabState] = useState<DetailTab>(tabParam || 'standings');
   const tabChosen = useRef(!!tabParam);
   const setActiveTab = (t: DetailTab) => {
@@ -1179,6 +1181,16 @@ export const ChampionshipDetail = () => {
                           <Eye className="h-4 w-4" />
                           Ver Jugadores
                         </button>
+                        {(isAdmin || (!!profile && team.captain_id === profile.id)) && (
+                          <button
+                            onClick={() => setRosterTeam({ id: team.id, name: team.name })}
+                            className="flex items-center justify-center gap-2 px-3 py-2 border border-gray-300 bg-white text-gray-800 rounded-lg hover:border-emerald-600 transition-colors text-sm font-bold"
+                            title="Cargar nómina desde Excel"
+                          >
+                            <FileSpreadsheet className="h-4 w-4 text-emerald-700" aria-hidden="true" />
+                            Nómina
+                          </button>
+                        )}
                         {isAdmin && (
                           <button
                             onClick={() => handleDeleteTeam(team.id, team.name)}
@@ -1405,6 +1417,10 @@ export const ChampionshipDetail = () => {
             fetchTopScorers();
           }}
         />
+      )}
+
+      {rosterTeam && (
+        <RosterImportModal teamId={rosterTeam.id} teamName={rosterTeam.name} onClose={() => setRosterTeam(null)} />
       )}
 
       {showTeamPlayersModal && selectedTeam && (
