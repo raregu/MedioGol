@@ -18,12 +18,18 @@
 
 -- ---------- Fichas sin cuenta ----------
 DO $$
-DECLARE r record;
+DECLARE
+  r record;
+  v_pp regclass := to_regclass('public.player_profiles');
 BEGIN
+  IF v_pp IS NULL THEN
+    RAISE EXCEPTION 'No se encontró la tabla public.player_profiles (base: %, usuario: %). Revisa que el SQL Editor esté en el proyecto de MedioGol y con el rol postgres.',
+      current_database(), current_user;
+  END IF;
   FOR r IN
     SELECT c.conname FROM pg_constraint c
-    WHERE c.conrelid = 'public.player_profiles'::regclass AND c.contype = 'f'
-      AND c.confrelid = 'auth.users'::regclass
+    WHERE c.conrelid = v_pp AND c.contype = 'f'
+      AND c.confrelid = to_regclass('auth.users')
   LOOP
     EXECUTE format('ALTER TABLE public.player_profiles DROP CONSTRAINT %I', r.conname);
   END LOOP;
