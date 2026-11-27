@@ -29,6 +29,16 @@ export const isIn = (s: PlayStatus | null | undefined) => s === 'in' || s === 'a
 export const pricePerPerson = (price: number | null | undefined, slots: number) =>
   price && slots > 0 ? Math.ceil(price / slots / 100) * 100 : null;
 
+/** Cuota de la semana: la configurada, o (semanas antiguas) la cancha dividida en los cupos. */
+export const sessionFee = (session: { fee?: number | null; price: number | null; slots: number }) =>
+  session.fee != null ? session.fee || null : pricePerPerson(session.price, session.slots);
+
+/** Lo que paga un jugador esa semana: su cuota + la de su invitado. */
+export const owedBy = (m: { guests: number }, session: { fee?: number | null; guest_fee?: number | null; price: number | null; slots: number }) => {
+  const fee = sessionFee(session) || 0;
+  return fee + m.guests * (session.guest_fee ?? fee);
+};
+
 export const formatPerPerson = (price: number | null | undefined, slots: number) => {
   const v = pricePerPerson(price, slots);
   return v ? formatCLP(v) : null;
@@ -93,9 +103,11 @@ export const listMessage = (v: PlayGroupView) => {
   const waiting = members.filter((m) => m.status === 'wait').sort(byQueue);
   const out = members.filter((m) => m.status === 'out');
   const pending = inside.filter((m) => m.status === 'auto');
-  const unpaid = session.price ? inside.filter((m) => !m.paid) : [];
+  const fee = sessionFee(session);
+  const unpaid = fee ? inside.filter((m) => !m.paid) : [];
   const free = Math.max(session.slots - session.used, 0);
-  const per = formatPerPerson(session.price, session.slots);
+  const per = fee ? formatCLP(fee) : null;
+  const debts = (v.cash?.debts || []).filter((d) => d.amount > 0);
   const link = groupLink(group.invite_code);
 
   const lines = [
@@ -112,6 +124,8 @@ export const listMessage = (v: PlayGroupView) => {
     waiting.length ? `🕒 *En espera:* ${waiting.map((m, i) => `${i + 1}° ${withGuest(m)}`).join(', ')}` : null,
     out.length ? `❌ *No van:* ${names(out)}` : null,
     unpaid.length ? `💵 *Falta pagar${per ? ` (${per})` : ''}:* ${names(unpaid)}` : null,
+    debts.length ? `📌 *Deben de semanas anteriores:* ${debts.map((d) => `${d.name} ${formatCLP(d.amount)}`).join(', ')}` : null,
+    v.cash && fee ? `💰 *Caja del grupo:* ${formatCLP(v.cash.balance)}` : null,
     '',
     '*¿Vas?* Toca una opción:',
     `✅ Voy 👉 ${link}?r=si`,

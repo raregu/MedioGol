@@ -1,6 +1,7 @@
 import { FormEvent, useState } from 'react';
 import { PlayGroupSettings } from '../../types/playGroups';
 import { WEEKDAYS, WEEKDAYS_PLURAL, playErrorText } from '../../utils/playGroups';
+import { formatCLP } from '../../utils/money';
 import { Field, MoneyInput, fieldClass, primaryBtn } from '../payments/PaymentsUi';
 import { PanelProps, card } from './shared';
 
@@ -39,6 +40,15 @@ export const RulesPanel = ({ view, call }: PanelProps) => {
       return;
     }
     setBusy(true);
+    // Cuotas primero (función aparte: si la migración de la caja no está, el resto igual se guarda)
+    if ((s.fee ?? null) !== (view.group.fee ?? null) || (s.guest_fee ?? null) !== (view.group.guest_fee ?? null)) {
+      const { error: feeError } = await call('play_group_set_fees', { p_group: s.id, p_fee: s.fee ?? null, p_guest_fee: s.guest_fee ?? null });
+      if (feeError) {
+        setBusy(false);
+        setMsg({ ok: false, text: playErrorText(feeError, 'No pudimos guardar la cuota.') });
+        return;
+      }
+    }
     const { error } = await call('play_group_update', {
       p_group: s.id,
       p_settings: {
@@ -72,8 +82,31 @@ export const RulesPanel = ({ view, call }: PanelProps) => {
           <Field label="Cupos" hint={`${Math.floor(s.slots / 2)} vs ${Math.ceil(s.slots / 2)}`}>
             {(id) => <input id={id} type="number" min={4} max={40} className={fieldClass} value={s.slots} onChange={(e) => set('slots', Math.min(40, Math.max(4, Number(e.target.value) || 4)))} />}
           </Field>
-          <Field label="Valor cancha">{(id) => <MoneyInput id={id} value={s.price} onChange={(v) => set('price', v)} />}</Field>
         </div>
+      </section>
+
+      <section className={card} aria-labelledby="money">
+        <h2 id="money" className="font-extrabold">Cuota y caja del grupo</h2>
+        <p className="text-sm text-mg-muted">Cada jugador paga la cuota; el grupo paga la cancha. Lo que sobra queda en la caja para pelotas, asados, petos…</p>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Cuota por jugador">{(id) => <MoneyInput id={id} value={s.fee ?? null} onChange={(v) => set('fee', v)} />}</Field>
+          <Field label="Costo de la cancha" hint="Lo que paga el grupo cada semana.">{(id) => <MoneyInput id={id} value={s.price} onChange={(v) => set('price', v)} />}</Field>
+        </div>
+        {s.allow_guests && (
+          <Field label="Cuota del invitado (opcional)" hint="Si lo dejas vacío, paga lo mismo que un jugador.">
+            {(id) => <MoneyInput id={id} value={s.guest_fee ?? null} onChange={(v) => set('guest_fee', v)} />}
+          </Field>
+        )}
+        {s.fee != null && s.fee > 0 && (
+          <p className="text-sm font-bold">
+            {(() => {
+              const diff = s.fee * s.slots - (s.price || 0);
+              return diff >= 0
+                ? `Con los ${s.slots} cupos pagados quedan ${formatCLP(diff)} por semana para la caja.`
+                : `Ojo: con los ${s.slots} cupos pagados faltan ${formatCLP(-diff)} para la cancha.`;
+            })()}
+          </p>
+        )}
       </section>
 
       <section className={card} aria-labelledby="prio">

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ArrowLeftRight, MessageCircle, Shuffle, Sparkles, Trophy } from 'lucide-react';
+import { ArrowLeft, ArrowLeftRight, ArrowRight, Hand, MessageCircle, Shuffle, Sparkles, Trophy } from 'lucide-react';
 import { TeamSide } from '../../types/playGroups';
 import { balanceTeams, BalancePlayer, summarize, winChanceA } from '../../utils/teamBalancer';
 import { fmtSession, isIn, playErrorText, waLink } from '../../utils/playGroups';
@@ -9,7 +9,8 @@ import { PanelProps, card } from './shared';
 const POS_SHORT: Record<string, string> = { arquero: 'ARQ', defensa: 'DEF', medio: 'MED', delantero: 'DEL' };
 
 /**
- * Equipos parejos. El organizador arma, mueve jugadores tocándolos, guarda y comparte;
+ * Equipos parejos. El organizador arma (parejos o a mano), intercambia o pasa jugadores de un equipo
+ * a otro, ubica a los que se anotaron después, guarda y comparte;
  * después del partido carga el resultado (y la figura) y el nivel de cada uno se ajusta solo.
  * Los jugadores solo ven los equipos ya guardados (nunca el nivel).
  */
@@ -53,10 +54,30 @@ export const TeamsPanel = ({ view, call }: PanelProps) => {
     setDirty(true);
     setMsg(null);
   };
-  const move = (key: string) => {
-    if (!admin || !teams) return;
-    setTeams({ ...teams, [key]: teams[key] === 'A' ? 'B' : 'A' });
+  // Mover: la flecha pasa a uno solo; tocar uno y luego otro del otro equipo los intercambia
+  const [sel, setSel] = useState<string | null>(null);
+  const assign = (key: string, side: TeamSide) => {
+    if (!admin) return;
+    setTeams((t) => ({ ...(t || {}), [key]: side }));
+    setSel(null);
     setDirty(true);
+    setMsg(null);
+  };
+  const move = (key: string) => teams && assign(key, teams[key] === 'A' ? 'B' : 'A');
+  const pick = (key: string) => {
+    if (!admin || !teams) return;
+    if (!sel || sel === key) return setSel(sel === key ? null : key);
+    if (teams[sel] && teams[key] && teams[sel] !== teams[key]) {
+      setTeams({ ...teams, [sel]: teams[key], [key]: teams[sel] });
+      setSel(null);
+      setDirty(true);
+      setMsg(null);
+    } else setSel(key);
+  };
+  const manual = () => {
+    setTeams({});
+    setDirty(true);
+    setMsg(null);
   };
 
   const save = async () => {
@@ -122,6 +143,11 @@ export const TeamsPanel = ({ view, call }: PanelProps) => {
               <button type="button" className={primaryBtn} onClick={() => build(0)}>
                 <Sparkles className="h-4 w-4" aria-hidden="true" /> {teams ? 'Armar de nuevo' : 'Armar equipos parejos'}
               </button>
+              {!teams && (
+                <button type="button" className={secondaryBtn} onClick={manual}>
+                  <Hand className="h-4 w-4" aria-hidden="true" /> Armar a mano
+                </button>
+              )}
               {teams && (
                 <button type="button" className={secondaryBtn} onClick={() => build(seed + 1)}>
                   <Shuffle className="h-4 w-4" aria-hidden="true" /> Otra combinación
@@ -131,14 +157,33 @@ export const TeamsPanel = ({ view, call }: PanelProps) => {
             {teams && summary && (
               <>
                 <p className="text-sm font-bold" aria-live="polite">
-                  {Math.abs(chance - 0.5) < 0.06 ? 'Muy parejo' : Math.abs(chance - 0.5) < 0.12 ? 'Parejo' : 'Algo disparejo'} · Verde {Math.round(chance * 100)}% – {Math.round((1 - chance) * 100)}% Blanco
+                  {Number.isFinite(chance) && Object.values(teams).includes('A') && Object.values(teams).includes('B')
+                    ? `${Math.abs(chance - 0.5) < 0.06 ? 'Muy parejo' : Math.abs(chance - 0.5) < 0.12 ? 'Parejo' : 'Algo disparejo'} · Verde ${Math.round(chance * 100)}% – ${Math.round((1 - chance) * 100)}% Blanco`
+                    : 'Ubica a cada jugador en Verde o Blanco'}
                   {missing > 0 ? ` · ${missing} sin equipo` : ''}
                 </p>
-                <TeamColumns teams={teams} names={names} me={null} onMove={move} detail={(k) => {
+                {missing > 0 && (
+                  <div className="rounded-mg-md border border-dashed border-mg-gold bg-[#fff4d6] p-2 space-y-1" aria-label="Jugadores sin equipo">
+                    <p className="text-sm font-extrabold text-mg-gold-ink px-1">Sin equipo · {missing}</p>
+                    <ul className="space-y-1">
+                      {players.filter((p) => !teams[p.key]).map((p) => (
+                        <li key={p.key} className="flex items-center gap-2 min-h-[40px] px-2 rounded-mg-sm bg-mg-surface border border-mg-line">
+                          <span className="flex-1 truncate text-sm font-semibold">{names[p.key]}</span>
+                          <button type="button" className="min-h-[36px] px-3 rounded-mg-sm bg-mg-pitch text-mg-on-pitch text-xs font-extrabold" onClick={() => assign(p.key, 'A')}>Verde</button>
+                          <button type="button" className="min-h-[36px] px-3 rounded-mg-sm border border-mg-line-strong text-xs font-extrabold" onClick={() => assign(p.key, 'B')}>Blanco</button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                <TeamColumns teams={teams} names={names} me={null} onMove={move} onPick={pick} selected={sel} detail={(k) => {
                   const p = priv[k.replace(/^g:/, '')];
                   return k.startsWith('g:') ? null : p?.position ? POS_SHORT[p.position] : null;
                 }} />
-                <p className="text-xs text-mg-muted flex items-center gap-1"><ArrowLeftRight className="h-3.5 w-3.5" aria-hidden="true" /> Toca un jugador para cambiarlo de equipo.</p>
+                <p className="text-xs text-mg-muted flex items-start gap-1" aria-live="polite">
+                  <ArrowLeftRight className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" aria-hidden="true" />
+                  {sel ? `Ahora toca a alguien del otro equipo para intercambiarlo con ${names[sel]}.` : 'Toca un jugador y luego uno del otro equipo para intercambiarlos, o usa la flecha para pasarlo solo.'}
+                </p>
                 <div className="flex flex-wrap gap-2">
                   <button type="button" className={primaryBtn} disabled={busy || !dirty} onClick={save}>{dirty ? 'Guardar equipos' : 'Guardados'}</button>
                   <a href={waLink(shareText())} target="_blank" rel="noopener noreferrer" className={secondaryBtn}>
@@ -184,8 +229,14 @@ export const TeamsPanel = ({ view, call }: PanelProps) => {
   );
 };
 
-const TeamColumns = ({ teams, names, me, onMove, detail }: {
-  teams: Record<string, TeamSide>; names: Record<string, string>; me: string | null; onMove?: (k: string) => void; detail?: (k: string) => string | null;
+const TeamColumns = ({ teams, names, me, onMove, onPick, selected, detail }: {
+  teams: Record<string, TeamSide>;
+  names: Record<string, string>;
+  me: string | null;
+  onMove?: (k: string) => void;
+  onPick?: (k: string) => void;
+  selected?: string | null;
+  detail?: (k: string) => string | null;
 }) => (
   <div className="grid grid-cols-2 gap-3">
     {(['A', 'B'] as TeamSide[]).map((side) => {
@@ -197,10 +248,22 @@ const TeamColumns = ({ teams, names, me, onMove, detail }: {
             {keys.map((k) => (
               <li key={k}>
                 {onMove ? (
-                  <button type="button" onClick={() => onMove(k)} className="w-full min-h-[40px] text-left px-2 rounded-mg-sm bg-mg-surface border border-mg-line text-sm font-semibold flex items-center justify-between gap-2">
-                    <span className="truncate">{names[k]}</span>
-                    {detail?.(k) && <span className="text-[11px] font-extrabold text-mg-muted">{detail(k)}</span>}
-                  </button>
+                  <div className={`flex items-stretch rounded-mg-sm border bg-mg-surface ${selected === k ? 'border-mg-gold ring-2 ring-mg-gold' : 'border-mg-line'}`}>
+                    {side === 'B' && (
+                      <button type="button" onClick={() => onMove(k)} className="px-2 min-h-[40px] text-mg-muted hover:text-mg-ink border-r border-mg-line" aria-label={`Pasar a ${names[k]} a Verde`}>
+                        <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+                      </button>
+                    )}
+                    <button type="button" onClick={() => onPick?.(k)} aria-pressed={selected === k} className="flex-1 min-w-0 min-h-[40px] text-left px-2 text-sm font-semibold flex items-center justify-between gap-2">
+                      <span className="truncate">{names[k]}</span>
+                      {detail?.(k) && <span className="text-[11px] font-extrabold text-mg-muted">{detail(k)}</span>}
+                    </button>
+                    {side === 'A' && (
+                      <button type="button" onClick={() => onMove(k)} className="px-2 min-h-[40px] text-mg-muted hover:text-mg-ink border-l border-mg-line" aria-label={`Pasar a ${names[k]} a Blanco`}>
+                        <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                      </button>
+                    )}
+                  </div>
                 ) : (
                   <span className="block px-2 py-1.5 text-sm font-semibold">{names[k]}{k === me ? ' (tú)' : ''}</span>
                 )}

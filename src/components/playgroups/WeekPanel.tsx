@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Check, Copy, CreditCard, MessageCircle, UserPlus } from 'lucide-react';
+import { Check, Copy, CreditCard, MessageCircle, Pencil, UserPlus } from 'lucide-react';
 import { PlayMember } from '../../types/playGroups';
-import { byQueue, fmtMoment, formatPerPerson, groupLink, isIn, listMessage, playErrorText, waLink } from '../../utils/playGroups';
-import { primaryBtn, secondaryBtn } from '../payments/PaymentsUi';
+import { byQueue, fmtMoment, groupLink, isIn, listMessage, owedBy, playErrorText, sessionFee, waLink } from '../../utils/playGroups';
+import { formatCLP } from '../../utils/money';
+import { MoneyInput, primaryBtn, secondaryBtn } from '../payments/PaymentsUi';
 import { CHIP, PanelProps, PlayCall, card, smallBtn } from './shared';
 
 /** La semana: mi estado (voy / no voy / invitado / pagué) y quiénes van, en espera y no van. */
@@ -17,7 +18,9 @@ export const WeekPanel = ({ view, call, token }: PanelProps) => {
   const played = session.status !== 'open' || new Date(session.starts_at).getTime() <= now;
   const listOpen = new Date(session.opens_at).getTime() <= now;
   const subsOpen = new Date(session.subs_at).getTime() <= now;
-  const perPerson = formatPerPerson(session.price, session.slots);
+  const fee = sessionFee(session);
+  const priced = !!fee;
+  const perPerson = fee ? formatCLP(fee) : null;
 
   const inside = members.filter((m) => isIn(m.status)).sort((a, b) => Number(a.status === 'auto') - Number(b.status === 'auto') || a.name.localeCompare(b.name));
   const waiting = members.filter((m) => m.status === 'wait').sort(byQueue);
@@ -98,7 +101,7 @@ export const WeekPanel = ({ view, call, token }: PanelProps) => {
         </section>
       )}
 
-      {me && !played && (isIn(me.status) || me.status === 'wait') && (group.allow_guests || (session.price && isIn(me.status))) && (
+      {me && !played && (isIn(me.status) || me.status === 'wait') && (group.allow_guests || (priced && isIn(me.status))) && (
         <section className={card} aria-label="Esta semana">
           <div className="flex flex-wrap gap-2">
             {group.allow_guests && (
@@ -106,9 +109,9 @@ export const WeekPanel = ({ view, call, token }: PanelProps) => {
                 <UserPlus className="h-4 w-4" aria-hidden="true" /> {me.guests ? 'Llevas 1 invitado (quitar)' : 'Llevar un invitado'}
               </button>
             )}
-            {session.price != null && session.price > 0 && isIn(me.status) && (
+            {priced && isIn(me.status) && (
               <button type="button" className={`${secondaryBtn} ${me.paid ? '!bg-mg-pitch-tint !border-mg-pitch' : ''}`} disabled={!!busy} aria-pressed={me.paid} onClick={() => setPaid(!me.paid)}>
-                <CreditCard className="h-4 w-4" aria-hidden="true" /> {me.paid ? `Pagaste ${perPerson} (quitar)` : `Marcar que pagué ${perPerson}`}
+                <CreditCard className="h-4 w-4" aria-hidden="true" /> {me.paid ? `Pagaste ${formatCLP(owedBy(me, session))} (quitar)` : `Marcar que pagué ${formatCLP(owedBy(me, session))}`}
               </button>
             )}
           </div>
@@ -135,9 +138,11 @@ export const WeekPanel = ({ view, call, token }: PanelProps) => {
           <Stat label="Van" value={`${session.used}/${session.slots}`} />
           <Stat label="Sin confirmar" value={String(inside.filter((m) => m.status === 'auto').length)} warn={group.fixed_mode === 'confirm'} />
           <Stat label="En espera" value={String(waiting.length)} />
-          {session.price ? <Stat label="Pagaron" value={`${inside.filter((m) => m.paid).length}/${inside.length}`} /> : <Stat label="No van" value={String(out.length)} />}
+          {priced ? <Stat label="Pagaron" value={`${inside.filter((m) => m.paid).length}/${inside.length}`} /> : <Stat label="No van" value={String(out.length)} />}
         </div>
       )}
+
+      {priced && (view.me || admin) && <WeekMoney view={view} call={call} token={token} inside={inside} />}
 
       <section className={card} aria-labelledby="who">
         <div className="flex items-baseline justify-between">
@@ -149,7 +154,7 @@ export const WeekPanel = ({ view, call, token }: PanelProps) => {
         ) : (
           <ul className="divide-y divide-mg-line">
             {inside.map((m) => (
-              <Row key={m.id} m={m} me={view.me} admin={admin} played={played} priced={!!session.price} busy={busy}
+              <Row key={m.id} m={m} me={view.me} admin={admin} played={played} priced={priced} busy={busy}
                 onOut={() => respond('out', 0, m.id)} onPaid={() => setPaid(!m.paid, m.id)} pendingLabel="sin confirmar" />
             ))}
           </ul>
@@ -190,7 +195,7 @@ export const WeekPanel = ({ view, call, token }: PanelProps) => {
       {!played && (
         <p className="text-xs text-mg-muted">
           Lista: se abre el {fmtMoment(session.opens_at)} · suplentes desde el {fmtMoment(session.subs_at)} · cierra el {fmtMoment(session.closes_at)}.
-          {perPerson ? ` Valor por persona ${perPerson}.` : ''}
+          {perPerson ? ` Cuota ${perPerson}.` : ''}
         </p>
       )}
     </div>
@@ -263,5 +268,75 @@ const MyNick = ({ groupId, nick, call, token }: { groupId: string; nick: string;
       </div>
       {error && <p role="alert" className="text-sm font-bold text-mg-danger">{error}</p>}
     </form>
+  );
+};
+
+/** Plata de la semana: lo recaudado, la cancha y lo que queda para la caja del grupo. */
+const WeekMoney = ({ view, call, inside }: { view: PanelProps['view']; call: PlayCall; token: string | null; inside: PlayMember[] }) => {
+  const { session, is_admin: admin } = view;
+  const [editing, setEditing] = useState(false);
+  const [cost, setCost] = useState<number | null>(session.price);
+  const [fee, setFee] = useState<number | null>(sessionFee(session));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const collected = inside.filter((m) => m.paid).reduce((a, m) => a + owedBy(m, session), 0);
+  const expected = inside.reduce((a, m) => a + owedBy(m, session), 0);
+  const field = session.price || 0;
+  const pending = expected - collected;
+
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    const { error: err } = await call('play_session_set_money', { p_session: session.id, p_cost: cost ?? 0, p_fee: fee ?? 0 });
+    setBusy(false);
+    if (err) setError(playErrorText(err, 'No pudimos guardar los montos de esta semana.'));
+    else setEditing(false);
+  };
+
+  return (
+    <section className={card} aria-labelledby="week-money">
+      <div className="flex items-center justify-between gap-2">
+        <h2 id="week-money" className="font-extrabold">Plata de la semana</h2>
+        {admin && !editing && (
+          <button type="button" className={smallBtn} onClick={() => setEditing(true)}>
+            <Pencil className="h-3.5 w-3.5" aria-hidden="true" /> Corregir
+          </button>
+        )}
+      </div>
+      {editing ? (
+        <form onSubmit={save} className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <label className="space-y-1 text-sm font-bold">
+              <span className="block">Cuota esta semana</span>
+              <MoneyInput id="week-fee" value={fee} onChange={setFee} />
+            </label>
+            <label className="space-y-1 text-sm font-bold">
+              <span className="block">Cancha esta semana</span>
+              <MoneyInput id="week-cost" value={cost} onChange={setCost} />
+            </label>
+          </div>
+          <p className="text-xs text-mg-muted">Solo cambia esta semana (por ejemplo, si la cancha salió gratis). Para todas las semanas, usa Reglas.</p>
+          {error && <p role="alert" className="text-sm font-bold text-mg-danger">{error}</p>}
+          <div className="flex gap-2 justify-end">
+            <button type="button" className={smallBtn} onClick={() => setEditing(false)}>Cancelar</button>
+            <button type="submit" className={smallBtn} disabled={busy}>{busy ? 'Guardando…' : 'Guardar'}</button>
+          </div>
+        </form>
+      ) : (
+        <dl className="text-sm divide-y divide-mg-line">
+          <div className="flex justify-between py-1.5"><dt className="text-mg-muted">Recaudado ({inside.filter((m) => m.paid).length} de {inside.length})</dt><dd className="mg-num font-bold">{formatCLP(collected)}</dd></div>
+          <div className="flex justify-between py-1.5"><dt className="text-mg-muted">Cancha</dt><dd className="mg-num font-bold">−{formatCLP(field)}</dd></div>
+          {pending > 0 && <div className="flex justify-between py-1.5"><dt className="text-mg-muted">Falta por pagar</dt><dd className="mg-num font-bold text-mg-gold-ink">{formatCLP(pending)}</dd></div>}
+          <div className="flex justify-between py-1.5 font-extrabold">
+            <dt>{pending > 0 ? 'A la caja si pagan todos' : 'A la caja'}</dt>
+            <dd className={`mg-num ${expected - field >= 0 ? 'text-mg-pitch-deep' : 'text-mg-danger'}`}>{expected - field >= 0 ? '+' : '−'}{formatCLP(Math.abs(expected - field))}</dd>
+          </div>
+          {view.cash && (
+            <div className="flex justify-between py-1.5"><dt className="text-mg-muted">Saldo de la caja del grupo</dt><dd className="mg-num font-bold">{formatCLP(view.cash.balance)}</dd></div>
+          )}
+        </dl>
+      )}
+    </section>
   );
 };
