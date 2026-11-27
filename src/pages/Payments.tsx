@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react';
 import { Layout } from '../components/Layout';
+import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { ChampionshipPaymentsView } from '../components/payments/ChampionshipPaymentsView';
 import { TeamStatementView } from '../components/payments/TeamStatementView';
@@ -29,10 +31,30 @@ export const ChampionshipPayments = ({ id }: { id: string }) => {
   return <ChampionshipPaymentsView championship={championship} canManage={canManage} balances={balances} settings={settings} onChanged={reload} />;
 };
 
+/** Tesorero de la liga: solo la caja (no administra los cobros por serie). */
+const LeagueCashOnly = ({ id }: { id: string }) => {
+  const [state, setState] = useState<{ name: string; role: string | null } | null | 'error'>(null);
+  useEffect(() => {
+    let alive = true;
+    Promise.all([supabase.from('leagues').select('name').eq('id', id).maybeSingle(), supabase.rpc('league_cash_role', { p_league: id })]).then(([l, r]) => {
+      if (!alive) return;
+      if (l.error || !l.data) return setState('error');
+      setState({ name: l.data.name, role: r.error ? null : ((r.data as string | null) ?? null) });
+    });
+    return () => {
+      alive = false;
+    };
+  }, [id]);
+  if (state === null) return <p role="status" className="py-16 text-center text-mg-muted">Cargando…</p>;
+  if (state === 'error') return <Message title="No se pudo cargar la liga." />;
+  if (!state.role) return <Message title="No tienes acceso a los pagos de esta liga." text="Solo lo ven sus administradores y tesoreros." />;
+  return <LeaguePaymentsView league={{ id, name: state.name }} series={[]} cashOnly />;
+};
+
 const LeaguePayments = ({ id }: { id: string }) => {
   const { status, league, series, reload } = useLeaguePayments(id);
   if (status === 'loading') return <p role="status" className="py-16 text-center text-mg-muted">Cargando pagos de la liga…</p>;
-  if (status === 'denied') return <Message title="No tienes acceso a los pagos de esta liga." text="Solo lo ven sus administradores." />;
+  if (status === 'denied') return <LeagueCashOnly id={id} />;
   if (status === 'error' || !league) return <Message title="No se pudieron cargar los pagos de la liga." onRetry={reload} />;
   return <LeaguePaymentsView league={league} series={series} />;
 };
