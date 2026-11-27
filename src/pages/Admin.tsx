@@ -11,7 +11,8 @@ import { useOrganizerPlan } from '../hooks/useOrganizerPlan';
 import { PlanStatusCard } from '../components/plan/PlanStatusCard';
 import { OrganizerPlansPanel } from '../components/plan/OrganizerPlansPanel';
 import { Championship, Team, Match, Sanction, Profile } from '../types/database';
-import { Trophy, Users, AlertCircle, Plus, UserCog, CreditCard as Edit, MapPin, Trash2, Phone, Image, Eye, Wallet, Flag, Compass, Crown } from 'lucide-react';
+import { Trophy, Users, AlertCircle, Plus, UserCog, CreditCard as Edit, MapPin, Trash2, Phone, Image, Eye, Wallet, Flag, Compass, Crown, FileSpreadsheet } from 'lucide-react';
+import { RosterImportModal } from '../components/RosterImportModal';
 import { CreateChampionshipModal } from '../components/admin/CreateChampionshipModal';
 import { EditChampionshipModal } from '../components/admin/EditChampionshipModal';
 import { CreateTeamModal } from '../components/CreateTeamModal';
@@ -79,6 +80,7 @@ export const Admin = () => {
   const [showAdvertisementsModal, setShowAdvertisementsModal] = useState(false);
   const [editingChampionship, setEditingChampionship] = useState<Championship | null>(null);
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
+  const [rosterTeam, setRosterTeam] = useState<Team | null>(null);
   const [editingSanction, setEditingSanction] = useState<Sanction | null>(null);
   const [editingComplex, setEditingComplex] = useState<SportsComplex | null>(null);
   const [editingBaseTeam, setEditingBaseTeam] = useState<any | null>(null);
@@ -1077,6 +1079,14 @@ export const Admin = () => {
                                 />
                               )}
                               <h3 className="font-bold text-lg text-gray-900 mb-2">{team.name}</h3>
+                              <button
+                                type="button"
+                                onClick={() => setRosterTeam(team)}
+                                className="mb-3 inline-flex items-center gap-2 min-h-[40px] px-3 rounded-lg border border-gray-300 bg-white text-gray-800 hover:border-emerald-600 text-sm font-bold"
+                              >
+                                <FileSpreadsheet className="h-4 w-4 text-emerald-700" aria-hidden="true" />
+                                Cargar nómina (Excel)
+                              </button>
 
                               <div className="space-y-2 mb-3">
                                 {team.captain ? (
@@ -1402,6 +1412,9 @@ export const Admin = () => {
           />
         )}
 
+        {rosterTeam && (
+          <RosterImportModal teamId={rosterTeam.id} teamName={rosterTeam.name} onClose={() => setRosterTeam(null)} />
+        )}
         {editingTeam && (
           <EditTeamModal
             team={editingTeam}
