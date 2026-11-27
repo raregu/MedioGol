@@ -1,16 +1,30 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { ArrowLeft, ChevronRight } from 'lucide-react';
 import { LeagueSeriesPayment } from '../../types/payments';
 import { formatCLP } from '../../utils/money';
 import { Tile } from './PaymentsUi';
+import { LeagueCashView } from './LeagueCashView';
 
 interface Props {
   league: { id: string; name: string };
   series: LeagueSeriesPayment[];
+  /** Solo la caja (tesoreros: no ven los cobros por serie) */
+  cashOnly?: boolean;
 }
 
+type View = 'series' | 'cash';
+const initialView = (): View => (new URLSearchParams(window.location.search).get('tab') === 'caja' ? 'cash' : 'series');
+
 /** Resumen de cobros de la liga: una tarjeta por serie, cada una lleva a su panel. */
-export const LeaguePaymentsView = ({ league, series }: Props) => {
+export const LeaguePaymentsView = ({ league, series, cashOnly = false }: Props) => {
+  const [view, setViewState] = useState<View>(cashOnly ? 'cash' : initialView);
+  const setView = (v: View) => {
+    setViewState(v);
+    const url = new URL(window.location.href);
+    if (v === 'cash') url.searchParams.set('tab', 'caja');
+    else url.searchParams.delete('tab');
+    window.history.replaceState(null, '', url.toString());
+  };
   const totals = useMemo(
     () =>
       series.reduce(
@@ -34,8 +48,33 @@ export const LeaguePaymentsView = ({ league, series }: Props) => {
           <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Volver a la liga
         </a>
         <p className="mg-label text-mg-on-navy-muted">{league.name}</p>
-        <h1 className="font-display text-[34px] leading-9 font-extrabold uppercase">Pagos de la liga</h1>
+        <h1 className="font-display text-[34px] leading-9 font-extrabold uppercase">{cashOnly ? 'Caja de la liga' : 'Pagos de la liga'}</h1>
+        {!cashOnly && (
+          <nav className="mt-3 -mb-2 flex gap-1" aria-label="Secciones de pagos">
+            {(
+              [
+                ['series', 'Cobros por serie'],
+                ['cash', 'Caja de la liga'],
+              ] as const
+            ).map(([k, label]) => (
+              <button
+                key={k}
+                type="button"
+                onClick={() => setView(k)}
+                aria-pressed={view === k}
+                className={`min-h-[44px] px-3 text-sm font-extrabold border-b-4 ${view === k ? 'border-mg-gold text-mg-on-navy' : 'border-transparent text-mg-on-navy-muted hover:text-mg-on-navy'}`}
+              >
+                {label}
+              </button>
+            ))}
+          </nav>
+        )}
       </header>
+
+      {view === 'cash' ? (
+        <LeagueCashView league={league} />
+      ) : (
+      <>
 
       {unconfigured > 0 && (
         <p role="status" className="bg-[#fff4d6] border border-[#e0b84a] rounded-mg-md px-4 py-3 text-sm">
@@ -92,6 +131,8 @@ export const LeaguePaymentsView = ({ league, series }: Props) => {
           </ul>
         )}
       </section>
+      </>
+      )}
     </div>
   );
 };
