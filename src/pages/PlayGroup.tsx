@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronLeft, MapPin, RefreshCw } from 'lucide-react';
 import { Layout } from '../components/Layout';
+import { CashPanel } from '../components/playgroups/CashPanel';
 import { JoinPanel } from '../components/playgroups/JoinPanel';
 import { RosterPanel } from '../components/playgroups/RosterPanel';
 import { RulesPanel } from '../components/playgroups/RulesPanel';
@@ -11,10 +12,11 @@ import { useAuth } from '../contexts/AuthContext';
 import { usePlayGroup } from '../hooks/usePlayGroups';
 import { fmtSession, playErrorText } from '../utils/playGroups';
 
-type Tab = 'semana' | 'equipos' | 'plantel' | 'reglas';
+type Tab = 'semana' | 'equipos' | 'caja' | 'plantel' | 'reglas';
 const TABS: { id: Tab; label: string }[] = [
   { id: 'semana', label: 'Esta semana' },
   { id: 'equipos', label: 'Equipos' },
+  { id: 'caja', label: 'Caja' },
   { id: 'plantel', label: 'Plantel' },
   { id: 'reglas', label: 'Reglas' },
 ];
@@ -180,6 +182,7 @@ export const PlayGroup = () => {
             <>
               {(!admin || tab === 'semana') && <WeekPanel {...panelProps} />}
               {(!admin || tab === 'equipos') && <TeamsPanel key={session.id} {...panelProps} />}
+              {(admin ? tab === 'caja' : !!view.me) && <CashPanel {...panelProps} />}
               {admin && tab === 'plantel' && <RosterPanel {...panelProps} />}
               {admin && tab === 'reglas' && <RulesPanel key={group.id} {...panelProps} />}
             </>
